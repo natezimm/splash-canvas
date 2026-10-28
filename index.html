@@ -3,153 +3,240 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SplashCanvas — Pro Photo-to-Watercolor Converter</title>
+  <title>SplashCanvas — Client-Side Watercolor Rendering Studio</title>
   <link rel="stylesheet" href="styles.css" />
-  <!-- Optional MediaPipe Selfie Segmentation for one-click AI subject cutout when online -->
+  <!-- Optional MediaPipe Selfie Segmentation for client-side neural subject cutout -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous" async></script>
 </head>
 <body>
   <div class="app-shell">
-    <!-- Top Header Bar -->
+    <!-- Top Application Bar -->
     <header class="top-bar">
       <div class="brand">
-        <div class="brand-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+            <path d="M9.5 14.5c.5 1.5 2 2.5 3.5 2.5"/>
           </svg>
         </div>
-        <div>
-          <h1>SplashCanvas</h1>
-          <span class="subtitle">Bespoke Portrait &amp; Photo-to-Watercolor Engine</span>
+        <div class="brand-copy">
+          <div class="brand-title-row">
+            <h1>SplashCanvas</h1>
+            <span class="version-pill">v2.0 Studio</span>
+          </div>
+          <span class="subtitle">Anisotropic Kuwahara &amp; Procedural Watercolor Engine</span>
         </div>
       </div>
 
       <div class="top-actions">
-        <label class="btn btn-secondary" for="file-input" title="Upload your own photo (JPG, PNG, WebP)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- File Input & Curated Unsplash Sample Gallery -->
+        <label class="btn btn-secondary" for="file-input" title="Open a local image file (JPG, PNG, WebP)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          Open Photo
+          <span>Open Photo</span>
         </label>
         <input type="file" id="file-input" accept="image/*" hidden />
 
         <div class="sample-dropdown">
-          <button class="btn btn-ghost" id="sample-menu-btn" title="Try built-in sample scenes">
-            Sample Photos ▾
+          <button class="btn btn-ghost" id="sample-menu-btn" aria-haspopup="true" aria-expanded="false" title="Load free-to-use high-resolution Unsplash reference photos">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <span>Sample Photos</span>
+            <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
           </button>
-          <div class="sample-menu" id="sample-menu">
-            <button data-sample="surfers">🏄‍♂️ Beach Surfers &amp; Pup (Reference Style)</button>
-            <button data-sample="portrait">👩‍🎨 Golden Hour Portrait</button>
-            <button data-sample="pet">🐕 Golden Retriever Close-Up</button>
-            <button data-sample="architecture">🏛️ European Street &amp; Cafe</button>
+          <div class="sample-menu" id="sample-menu" role="menu">
+            <div class="sample-menu-header">Unsplash Free-to-Use Reference Photos</div>
+            <button data-sample="portrait" role="menuitem">
+              <span class="sample-dot" style="background:#e07a5f"></span>
+              <span class="sample-meta">
+                <strong>Expressive Studio Portrait</strong>
+                <small>Natural skin tones &amp; warm key light (Default)</small>
+              </span>
+            </button>
+            <button data-sample="pet" role="menuitem">
+              <span class="sample-dot" style="background:#eab308"></span>
+              <span class="sample-meta">
+                <strong>Golden Retriever Outdoors</strong>
+                <small>Fine fur texture &amp; soft foliage bokeh</small>
+              </span>
+            </button>
+            <button data-sample="surfers" role="menuitem">
+              <span class="sample-dot" style="background:#38bdf8"></span>
+              <span class="sample-meta">
+                <strong>Coastal Surfer &amp; Ocean Spray</strong>
+                <small>High-contrast coastal light &amp; water splashes</small>
+              </span>
+            </button>
+            <button data-sample="architecture" role="menuitem">
+              <span class="sample-dot" style="background:#f59e0b"></span>
+              <span class="sample-meta">
+                <strong>Venetian Canal Architecture</strong>
+                <small>Ochre facades &amp; water reflections (Line &amp; Wash)</small>
+              </span>
+            </button>
           </div>
         </div>
 
         <div class="divider-v"></div>
 
-        <button class="btn btn-ghost" id="randomize-seed-btn" title="Generate a fresh organic splatter &amp; wash layout">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- History Controls (Undo / Redo) -->
+        <div class="history-group">
+          <button class="btn btn-icon" id="undo-btn" disabled title="Undo parameter or brush change (Cmd/Ctrl+Z)" aria-label="Undo">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7v6h6"/>
+              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+            </svg>
+          </button>
+          <button class="btn btn-icon" id="redo-btn" disabled title="Redo parameter or brush change (Cmd/Ctrl+Shift+Z)" aria-label="Redo">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 7v6h-6"/>
+              <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/>
+            </svg>
+          </button>
+        </div>
+
+        <button class="btn btn-ghost" id="randomize-seed-btn" title="Generate a new deterministic PRNG splatter &amp; wash layout (Shortcut: R)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
             <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
             <line x1="4" y1="4" x2="9" y2="9"/>
           </svg>
-          Re-Roll Splatters
+          <span>Re-Roll Seed</span>
         </button>
 
-        <button class="btn btn-ghost" id="reset-all-btn" title="Reset sliders to current preset defaults">
-          Reset
+        <button class="btn btn-ghost" id="reset-all-btn" title="Reset all parameters &amp; mask edits to the active preset defaults">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+          <span>Reset</span>
+        </button>
+
+        <button class="btn btn-icon" id="shortcuts-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M8 12h.001M12 12h.001M16 12h.001M7 16h10"/>
+          </svg>
         </button>
 
         <div class="divider-v"></div>
 
+        <!-- Export Controls -->
         <div class="export-group">
-          <select id="export-scale" class="select-compact" title="Export resolution multiplier">
-            <option value="1">1x Original Size</option>
-            <option value="1.5">1.5x High-Res Print</option>
-            <option value="2">2x Ultra-HD Print</option>
+          <select id="export-scale" class="select-compact" aria-label="Export resolution scale" title="Select export resolution multiplier">
+            <option value="1">1x Native</option>
+            <option value="1.5">1.5x Print</option>
+            <option value="2">2x Ultra-HD</option>
           </select>
           <button class="btn btn-primary" id="export-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            Export PNG
+            <span>Export PNG</span>
           </button>
         </div>
       </div>
     </header>
 
-    <!-- Main Studio Workspace -->
+    <!-- Main 3-Column Studio Workspace -->
     <div class="workspace">
-      <!-- Left Sidebar: Presets & Masking Brush Tools -->
-      <aside class="left-panel">
+      <!-- Left Sidebar: Presets, Subject Segmentation & Masking Brush -->
+      <aside class="left-panel" aria-label="Presets and Subject Segmentation">
         <div class="panel-section">
           <div class="section-header">
-            <h2>Style Presets</h2>
-            <span class="badge">8 Curated</span>
+            <h2>Aquarelle Presets</h2>
+            <span class="badge">8 Styles</span>
           </div>
-          <p class="section-hint">Inspired by top custom Fiverr watercolor gigs</p>
-          <div class="preset-grid" id="preset-grid">
+          <p class="section-hint">Curated pigment, wash bleed, and splatter profiles</p>
+          <div class="preset-grid" id="preset-grid" role="radiogroup" aria-label="Watercolor style presets">
             <!-- Populated dynamically by app.js -->
           </div>
         </div>
 
         <div class="panel-section">
           <div class="section-header">
-            <h2>Subject Cutout &amp; Mask</h2>
-            <span class="badge" id="ai-status-badge">Smart Mask</span>
+            <h2>Subject Isolation</h2>
+            <span class="badge" id="ai-status-badge">Saliency Mask</span>
           </div>
-          <p class="section-hint">Isolate your subject so the background melts into watercolor splashes</p>
+          <p class="section-hint">Separate foreground subjects so backgrounds dissolve into cold-press paper and pigment splashes</p>
 
-          <div class="cutout-mode-grid">
+          <div class="cutout-mode-grid" role="radiogroup" aria-label="Subject cutout mode">
             <button class="mode-btn active" data-cutout="smart">
-              <strong>Auto Subject</strong>
-              <span>Smart Portrait + Color Cutout</span>
+              <div class="mode-btn-left">
+                <strong>Smart Saliency</strong>
+                <span>Border rejection + center portrait prior</span>
+              </div>
+              <span class="mode-indicator"></span>
             </button>
             <button class="mode-btn" data-cutout="radial">
-              <strong>Center Vignette</strong>
-              <span>Organic Elliptical Wash</span>
+              <div class="mode-btn-left">
+                <strong>Elliptical Vignette</strong>
+                <span>Organic center wash transition</span>
+              </div>
+              <span class="mode-indicator"></span>
             </button>
             <button class="mode-btn" data-cutout="full">
-              <strong>Full Canvas</strong>
-              <span>Paint Entire Scene</span>
+              <div class="mode-btn-left">
+                <strong>Full Bleed</strong>
+                <span>Edge-to-edge deckle wash</span>
+              </div>
+              <span class="mode-indicator"></span>
             </button>
           </div>
 
-          <button class="btn btn-ai-cutout" id="ai-cutout-btn" title="Run neural network person/subject segmentation">
-            ✨ Run Precision AI Cutout
+          <button class="btn btn-ai-cutout" id="ai-cutout-btn" title="Run client-side MediaPipe neural person segmentation fused with local saliency">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
+            </svg>
+            <span id="ai-cutout-btn-label">Run Neural Subject Cutout</span>
           </button>
 
-          <!-- Interactive Brush Refinement -->
+          <!-- Interactive Mask Brush Refinement -->
           <div class="brush-box">
             <div class="brush-header">
-              <span>Interactive Mask Brush</span>
-              <button class="btn-tiny" id="clear-brush-btn" title="Clear manual brush strokes">Clear Edits</button>
+              <span class="brush-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18.37 2.63 14 7l-1.59-1.59a2 2 0 0 0-2.82 0L8 7l9 9 1.59-1.59a2 2 0 0 0 0-2.82L17 10l4.37-4.37a2.12 2.12 0 1 0-3-3Z"/>
+                  <path d="M9 8c-2 3-4 3.5-7 4l8 10c2-1 6-5 6-7"/>
+                </svg>
+                Mask Refinement Brush
+              </span>
+              <button class="btn-tiny" id="clear-brush-btn" title="Clear manual brush edits">Clear Mask</button>
             </div>
-            <div class="brush-buttons">
-              <button class="brush-btn active" data-brush="none" title="Standard view / split compare mode">
-                🖱️ View / Compare
+            <div class="brush-buttons" role="radiogroup" aria-label="Brush interaction mode">
+              <button class="brush-btn active" data-brush="none" title="Pan, inspect, or drag the split comparison handle">
+                <span class="brush-dot neutral"></span>
+                <span>Inspect / Split</span>
               </button>
-              <button class="brush-btn" data-brush="restore" title="Paint to keep/reveal more of the subject &amp; color splash">
-                🖌️ Reveal Subject
+              <button class="brush-btn" data-brush="restore" title="Paint on the canvas to reveal subject detail and local wash">
+                <span class="brush-dot restore"></span>
+                <span>Reveal Paint</span>
               </button>
-              <button class="brush-btn" data-brush="erase" title="Paint to dissolve unwanted background into paper">
-                🧽 Dissolve to Paper
+              <button class="brush-btn" data-brush="erase" title="Paint on the canvas to dissolve background areas into paper">
+                <span class="brush-dot erase"></span>
+                <span>Dissolve Paper</span>
               </button>
             </div>
             <div class="control-row compact" id="brush-size-row">
               <div class="control-label">
-                <label for="brush-size">Brush Size</label>
+                <label for="brush-size">Brush Radius <small class="shortcut-inline">[ / ]</small></label>
                 <span class="val" id="val-brush-size">65px</span>
               </div>
               <input type="range" id="brush-size" min="10" max="220" step="1" value="65" />
             </div>
             <div class="control-row compact" id="brush-softness-row">
               <div class="control-label">
-                <label for="brush-softness">Brush Feather</label>
+                <label for="brush-softness">Edge Feather</label>
                 <span class="val" id="val-brush-softness">75%</span>
               </div>
               <input type="range" id="brush-softness" min="10" max="100" step="1" value="75" />
@@ -160,37 +247,63 @@
         <div class="panel-section paper-tint-section">
           <div class="section-header">
             <h2>Paper Stock Tone</h2>
+            <span class="paper-name-label" id="paper-name-label">Cold-Press White</span>
           </div>
-          <div class="swatch-row" id="paper-swatches">
-            <button class="swatch active" data-tint="#f6f5f0" style="background:#f6f5f0" title="Cold-Press Bright White"></button>
-            <button class="swatch" data-tint="#f3efe6" style="background:#f3efe6" title="Warm Cotton Rag"></button>
-            <button class="swatch" data-tint="#ede6d6" style="background:#ede6d6" title="Vintage Cream"></button>
-            <button class="swatch" data-tint="#eef1f5" style="background:#eef1f5" title="Cool French Grey"></button>
-            <button class="swatch" data-tint="#f7eee8" style="background:#f7eee8" title="Blush Parchment"></button>
+          <div class="swatch-row" id="paper-swatches" role="radiogroup" aria-label="Paper stock tone">
+            <button class="swatch active" data-tint="#f6f5f0" data-name="Cold-Press White" style="background:#f6f5f0" title="Cold-Press Bright White (#f6f5f0)" aria-label="Cold-Press Bright White"></button>
+            <button class="swatch" data-tint="#f3efe6" data-name="Warm Cotton Rag" style="background:#f3efe6" title="Warm Cotton Rag (#f3efe6)" aria-label="Warm Cotton Rag"></button>
+            <button class="swatch" data-tint="#ede6d6" data-name="Archival Cream" style="background:#ede6d6" title="Archival Vintage Cream (#ede6d6)" aria-label="Archival Vintage Cream"></button>
+            <button class="swatch" data-tint="#eef1f5" data-name="Cool French Grey" style="background:#eef1f5" title="Cool French Grey (#eef1f5)" aria-label="Cool French Grey"></button>
+            <button class="swatch" data-tint="#f7eee8" data-name="Blush Parchment" style="background:#f7eee8" title="Warm Blush Parchment (#f7eee8)" aria-label="Blush Parchment"></button>
           </div>
         </div>
       </aside>
 
-      <!-- Center Viewport: Interactive Canvas & Before/After Split -->
+      <!-- Center Viewport: Interactive Canvas, Split Compare & Telemetry Bar -->
       <main class="canvas-stage" id="canvas-stage">
         <div class="stage-toolbar">
-          <div class="view-toggles">
-            <button class="pill-btn active" data-view="result">🎨 Artwork</button>
-            <button class="pill-btn" data-view="split">↔️ Split Compare</button>
-            <button class="pill-btn" data-view="original">📷 Original</button>
-            <button class="pill-btn" data-view="mask">🎭 Subject Mask</button>
+          <div class="view-toggles" role="tablist" aria-label="Canvas view mode">
+            <button class="pill-btn active" data-view="result" role="tab" title="Rendered Watercolor Artwork (Shortcut: 1)">
+              <span>Artwork</span>
+              <kbd>1</kbd>
+            </button>
+            <button class="pill-btn" data-view="split" role="tab" title="Interactive Before/After Split Comparison (Shortcut: 2)">
+              <span>Split Compare</span>
+              <kbd>2</kbd>
+            </button>
+            <button class="pill-btn" data-view="original" role="tab" title="Original Source Photograph (Shortcut: 3)">
+              <span>Original</span>
+              <kbd>3</kbd>
+            </button>
+            <button class="pill-btn" data-view="mask" role="tab" title="Alpha Wash &amp; Subject Isolation Mask (Shortcut: 4)">
+              <span>Alpha Mask</span>
+              <kbd>4</kbd>
+            </button>
           </div>
 
-          <div class="stage-status" id="stage-status">
-            <span class="status-dot"></span>
-            <span id="render-time-label">Ready</span>
+          <div class="stage-telemetry" id="stage-status">
+            <span class="status-dot" id="status-dot"></span>
+            <span id="render-time-label">Initializing engine...</span>
+            <span class="telemetry-sep">·</span>
+            <button class="seed-pill" id="seed-pill-btn" title="Click to generate a new random splatter seed (Shortcut: R)">
+              Seed <span id="seed-readout">#2026</span>
+            </button>
           </div>
 
-          <div class="zoom-controls">
-            <button class="icon-btn" id="zoom-out-btn" title="Zoom out">−</button>
-            <span id="zoom-label">Fit</span>
-            <button class="icon-btn" id="zoom-in-btn" title="Zoom in">+</button>
-            <button class="icon-btn" id="zoom-fit-btn" title="Fit to screen">⟲</button>
+          <div class="stage-right-tools">
+            <button class="btn-hold-compare" id="hold-compare-btn" title="Press and hold (or hold Spacebar) to peek at original photo">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <span>Hold Original</span>
+            </button>
+
+            <div class="zoom-controls">
+              <button class="icon-btn" id="zoom-out-btn" title="Zoom out (−)" aria-label="Zoom out">−</button>
+              <button class="zoom-readout" id="zoom-fit-btn" title="Click to reset zoom to Fit"><span id="zoom-label">Fit</span></button>
+              <button class="icon-btn" id="zoom-in-btn" title="Zoom in (+)" aria-label="Zoom in">+</button>
+            </div>
           </div>
         </div>
 
@@ -205,11 +318,26 @@
             <!-- Split Slider Handle -->
             <div id="split-slider" class="split-slider hidden">
               <div class="split-line"></div>
-              <div class="split-handle">
-                <span>◀</span><span>▶</span>
+              <div class="split-handle" title="Drag left or right to compare Original vs. Watercolor">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
               </div>
-              <div class="split-tag split-tag-before">Original</div>
-              <div class="split-tag split-tag-after">Watercolor</div>
+              <div class="split-tag split-tag-before">Original Photo</div>
+              <div class="split-tag split-tag-after">Watercolor Studio</div>
+            </div>
+          </div>
+
+          <!-- Source Attribution & Hint Footer Bar -->
+          <div class="viewport-footer">
+            <div class="photo-credit" id="photo-credit">
+              <!-- Populated dynamically with Unsplash photographer link or local file info -->
+            </div>
+            <div class="ux-tip">
+              Tip: Double-click any slider to reset it · Hold <kbd>Space</kbd> to peek original
             </div>
           </div>
 
@@ -221,273 +349,326 @@
                 <polyline points="17 8 12 3 7 8"/>
                 <line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
-              <h3>Drop Photo to Convert into Watercolor</h3>
-              <p>Supports JPG, PNG, WebP — 100% Local Processing</p>
+              <h3>Drop Photo to Render Watercolor</h3>
+              <p>JPG, PNG, WebP — 100% Client-Side Canvas Processing</p>
             </div>
           </div>
         </div>
       </main>
 
-      <!-- Right Sidebar: Comprehensive Sliders for ALL Watercolor Effects -->
-      <aside class="right-panel">
+      <!-- Right Sidebar: 24 Real-Time Effect Sliders with Filter & Section Reset -->
+      <aside class="right-panel" aria-label="Watercolor Effect Controls">
         <div class="sliders-header">
-          <h2>Effect Controls</h2>
-          <div class="sliders-header-right">
-            <button class="btn-tiny" id="toggle-sections-btn" title="Collapse or expand all control groups">Collapse All</button>
+          <div class="sliders-header-top">
+            <h2>Effect Parameters</h2>
+            <div class="sliders-header-right">
+              <button class="btn-tiny" id="toggle-sections-btn" title="Collapse or expand all parameter groups">Collapse All</button>
+            </div>
+          </div>
+          <div class="parameter-search-wrap">
+            <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="search" id="param-search-input" class="param-search-input" placeholder="Filter 24 parameters (e.g. drip, ring, grain)..." aria-label="Filter effect parameters" />
           </div>
         </div>
 
-        <div class="sliders-scroll">
+        <div class="sliders-scroll" id="sliders-scroll">
           <!-- Group 1: Watercolor Brush & Pigment Abstraction -->
-          <details class="control-group" open>
+          <details class="control-group" data-group="brush" open>
             <summary>
-              <span class="group-title">🖌️ Brush &amp; Pigment Abstraction</span>
+              <span class="group-title">
+                <span class="group-dot" style="background:#38bdf8"></span>
+                Brush &amp; Pigment Abstraction
+              </span>
+              <button type="button" class="group-reset-btn" data-reset-group="brush" title="Reset Brush &amp; Pigment parameters">Reset</button>
             </summary>
             <div class="group-body">
-              <div class="control-row">
+              <div class="control-row" data-label="brush stroke size kuwahara abstraction">
                 <div class="control-label">
                   <label for="Ctrl-brushRadius">Brush Stroke Size (Kuwahara)</label>
                   <span class="val" id="val-brushRadius">4px</span>
                 </div>
-                <input type="range" id="Ctrl-brushRadius" data-param="brushRadius" min="0" max="12" step="1" value="4" />
+                <input type="range" id="Ctrl-brushRadius" data-param="brushRadius" data-group="brush" min="0" max="12" step="1" value="4" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="wet wash smoothing blend">
                 <div class="control-label">
                   <label for="Ctrl-wetSmoothness">Wet Wash Smoothing</label>
                   <span class="val" id="val-wetSmoothness">45%</span>
                 </div>
-                <input type="range" id="Ctrl-wetSmoothness" data-param="wetSmoothness" min="0" max="100" step="1" value="45" />
+                <input type="range" id="Ctrl-wetSmoothness" data-param="wetSmoothness" data-group="brush" min="0" max="100" step="1" value="45" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="face center detail fidelity sharpness">
                 <div class="control-label">
-                  <label for="Ctrl-detailFidelity">Face &amp; Center Detail Fidelity</label>
-                  <span class="val" id="val-detailFidelity">70%</span>
+                  <label for="Ctrl-detailFidelity">Subject &amp; Face Detail Fidelity</label>
+                  <span class="val" id="val-detailFidelity">72%</span>
                 </div>
-                <input type="range" id="Ctrl-detailFidelity" data-param="detailFidelity" min="0" max="100" step="1" value="70" />
+                <input type="range" id="Ctrl-detailFidelity" data-param="detailFidelity" data-group="brush" min="0" max="100" step="1" value="72" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="pigment palette quantization simplification posterize">
                 <div class="control-label">
-                  <label for="Ctrl-colorSimplification">Pigment Palette Quantization</label>
-                  <span class="val" id="val-colorSimplification">20%</span>
+                  <label for="Ctrl-colorSimplification">Pigment Palette Simplification</label>
+                  <span class="val" id="val-colorSimplification">18%</span>
                 </div>
-                <input type="range" id="Ctrl-colorSimplification" data-param="colorSimplification" min="0" max="100" step="1" value="20" />
+                <input type="range" id="Ctrl-colorSimplification" data-param="colorSimplification" data-group="brush" min="0" max="100" step="1" value="18" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="pigment granulation bloom settling">
                 <div class="control-label">
-                  <label for="Ctrl-pigmentGranulation">Pigment Granulation &amp; Bloom</label>
+                  <label for="Ctrl-pigmentGranulation">Pigment Granulation &amp; Settling</label>
                   <span class="val" id="val-pigmentGranulation">35%</span>
                 </div>
-                <input type="range" id="Ctrl-pigmentGranulation" data-param="pigmentGranulation" min="0" max="100" step="1" value="35" />
+                <input type="range" id="Ctrl-pigmentGranulation" data-param="pigmentGranulation" data-group="brush" min="0" max="100" step="1" value="35" />
               </div>
             </div>
           </details>
 
           <!-- Group 2: Subject Bleed & Watercolor Wash Mask -->
-          <details class="control-group" open>
+          <details class="control-group" data-group="wash" open>
             <summary>
-              <span class="group-title">🌊 Subject Cutout &amp; Wash Bleed</span>
+              <span class="group-title">
+                <span class="group-dot" style="background:#818cf8"></span>
+                Subject Cutout &amp; Wash Bleed
+              </span>
+              <button type="button" class="group-reset-btn" data-reset-group="wash" title="Reset Subject &amp; Wash parameters">Reset</button>
             </summary>
             <div class="group-body">
-              <div class="control-row">
+              <div class="control-row" data-label="subject cutout coverage mask area">
                 <div class="control-label">
                   <label for="Ctrl-subjectCoverage">Subject Cutout Coverage</label>
                   <span class="val" id="val-subjectCoverage">58%</span>
                 </div>
-                <input type="range" id="Ctrl-subjectCoverage" data-param="subjectCoverage" min="15" max="95" step="1" value="58" />
+                <input type="range" id="Ctrl-subjectCoverage" data-param="subjectCoverage" data-group="wash" min="15" max="95" step="1" value="58" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="color wash aura spread dilation">
                 <div class="control-label">
-                  <label for="Ctrl-washSpread">Color Wash Aura Spread</label>
+                  <label for="Ctrl-washSpread">Outer Wash Aura Spread</label>
                   <span class="val" id="val-washSpread">65%</span>
                 </div>
-                <input type="range" id="Ctrl-washSpread" data-param="washSpread" min="0" max="100" step="1" value="65" />
+                <input type="range" id="Ctrl-washSpread" data-param="washSpread" data-group="wash" min="0" max="100" step="1" value="65" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="organic brush edge roughness fbm noise">
                 <div class="control-label">
                   <label for="Ctrl-edgeRoughness">Organic Brush Edge Roughness</label>
-                  <span class="val" id="val-edgeRoughness">72%</span>
+                  <span class="val" id="val-edgeRoughness">74%</span>
                 </div>
-                <input type="range" id="Ctrl-edgeRoughness" data-param="edgeRoughness" min="0" max="100" step="1" value="72" />
+                <input type="range" id="Ctrl-edgeRoughness" data-param="edgeRoughness" data-group="wash" min="0" max="100" step="1" value="74" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="wash edge feathering softness transition">
                 <div class="control-label">
                   <label for="Ctrl-edgeSoftness">Wash Edge Feathering</label>
-                  <span class="val" id="val-edgeSoftness">50%</span>
+                  <span class="val" id="val-edgeSoftness">52%</span>
                 </div>
-                <input type="range" id="Ctrl-edgeSoftness" data-param="edgeSoftness" min="5" max="100" step="1" value="50" />
+                <input type="range" id="Ctrl-edgeSoftness" data-param="edgeSoftness" data-group="wash" min="5" max="100" step="1" value="52" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="wet water ring edge darkening pooling rim">
                 <div class="control-label">
-                  <label for="Ctrl-waterRingIntensity">Wet Water-Ring Edge Darkening</label>
+                  <label for="Ctrl-waterRingIntensity">Wet Water-Ring Edge Pooling</label>
                   <span class="val" id="val-waterRingIntensity">55%</span>
                 </div>
-                <input type="range" id="Ctrl-waterRingIntensity" data-param="waterRingIntensity" min="0" max="100" step="1" value="55" />
+                <input type="range" id="Ctrl-waterRingIntensity" data-param="waterRingIntensity" data-group="wash" min="0" max="100" step="1" value="55" />
               </div>
             </div>
           </details>
 
           <!-- Group 3: Paint Splatters, Drips & Blooms -->
-          <details class="control-group" open>
+          <details class="control-group" data-group="splatter" open>
             <summary>
-              <span class="group-title">💦 Splatters, Droplets &amp; Drips</span>
+              <span class="group-title">
+                <span class="group-dot" style="background:#f472b6"></span>
+                Splatters, Droplets &amp; Drips
+              </span>
+              <button type="button" class="group-reset-btn" data-reset-group="splatter" title="Reset Splatter &amp; Drip parameters">Reset</button>
             </summary>
             <div class="group-body">
-              <div class="control-row">
+              <div class="control-row" data-label="paint splatter density droplets count">
                 <div class="control-label">
                   <label for="Ctrl-splatterAmount">Paint Splatter Density</label>
-                  <span class="val" id="val-splatterAmount">70%</span>
+                  <span class="val" id="val-splatterAmount">72%</span>
                 </div>
-                <input type="range" id="Ctrl-splatterAmount" data-param="splatterAmount" min="0" max="100" step="1" value="70" />
+                <input type="range" id="Ctrl-splatterAmount" data-param="splatterAmount" data-group="splatter" min="0" max="100" step="1" value="72" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="splatter bloom scale radius size">
                 <div class="control-label">
                   <label for="Ctrl-splatterSize">Splatter &amp; Bloom Scale</label>
                   <span class="val" id="val-splatterSize">55%</span>
                 </div>
-                <input type="range" id="Ctrl-splatterSize" data-param="splatterSize" min="10" max="100" step="1" value="55" />
+                <input type="range" id="Ctrl-splatterSize" data-param="splatterSize" data-group="splatter" min="10" max="100" step="1" value="55" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="outward splatter reach distance">
                 <div class="control-label">
-                  <label for="Ctrl-splatterReach">Outward Splatter Distance</label>
-                  <span class="val" id="val-splatterReach">65%</span>
+                  <label for="Ctrl-splatterReach">Outward Splatter Reach</label>
+                  <span class="val" id="val-splatterReach">68%</span>
                 </div>
-                <input type="range" id="Ctrl-splatterReach" data-param="splatterReach" min="10" max="100" step="1" value="65" />
+                <input type="range" id="Ctrl-splatterReach" data-param="splatterReach" data-group="splatter" min="10" max="100" step="1" value="68" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="vertical watercolor gravity drips">
                 <div class="control-label">
-                  <label for="Ctrl-dripLength">Vertical Watercolor Drips</label>
-                  <span class="val" id="val-dripLength">45%</span>
+                  <label for="Ctrl-dripLength">Vertical Gravity Drips</label>
+                  <span class="val" id="val-dripLength">48%</span>
                 </div>
-                <input type="range" id="Ctrl-dripLength" data-param="dripLength" min="0" max="100" step="1" value="45" />
+                <input type="range" id="Ctrl-dripLength" data-param="dripLength" data-group="splatter" min="0" max="100" step="1" value="48" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="subject color bleed into wash aura">
                 <div class="control-label">
-                  <label for="Ctrl-colorBleed">Subject Color Bleed into Wash</label>
-                  <span class="val" id="val-colorBleed">80%</span>
+                  <label for="Ctrl-colorBleed">Boundary Color Bleed Radius</label>
+                  <span class="val" id="val-colorBleed">82%</span>
                 </div>
-                <input type="range" id="Ctrl-colorBleed" data-param="colorBleed" min="0" max="100" step="1" value="80" />
+                <input type="range" id="Ctrl-colorBleed" data-param="colorBleed" data-group="splatter" min="0" max="100" step="1" value="82" />
               </div>
             </div>
           </details>
 
           <!-- Group 4: Pencil / Ink Sketch Linework -->
-          <details class="control-group" open>
+          <details class="control-group" data-group="sketch" open>
             <summary>
-              <span class="group-title">✏️ Sketch &amp; Ink Outlines</span>
+              <span class="group-title">
+                <span class="group-dot" style="background:#fbbf24"></span>
+                Sketch &amp; Ink Linework
+              </span>
+              <button type="button" class="group-reset-btn" data-reset-group="sketch" title="Reset Sketch &amp; Ink parameters">Reset</button>
             </summary>
             <div class="group-body">
-              <div class="control-row">
+              <div class="control-row" data-label="pencil ink line opacity sketch contour">
                 <div class="control-label">
                   <label for="Ctrl-sketchIntensity">Pencil / Ink Line Opacity</label>
-                  <span class="val" id="val-sketchIntensity">28%</span>
+                  <span class="val" id="val-sketchIntensity">26%</span>
                 </div>
-                <input type="range" id="Ctrl-sketchIntensity" data-param="sketchIntensity" min="0" max="100" step="1" value="28" />
+                <input type="range" id="Ctrl-sketchIntensity" data-param="sketchIntensity" data-group="sketch" min="0" max="100" step="1" value="26" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="fine edge sensitivity sobel threshold">
                 <div class="control-label">
-                  <label for="Ctrl-sketchDetail">Fine Edge Sensitivity</label>
-                  <span class="val" id="val-sketchDetail">60%</span>
+                  <label for="Ctrl-sketchDetail">Contour Edge Sensitivity</label>
+                  <span class="val" id="val-sketchDetail">62%</span>
                 </div>
-                <input type="range" id="Ctrl-sketchDetail" data-param="sketchDetail" min="10" max="100" step="1" value="60" />
+                <input type="range" id="Ctrl-sketchDetail" data-param="sketchDetail" data-group="sketch" min="10" max="100" step="1" value="62" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="sepia vs graphite ink tone warmth">
                 <div class="control-label">
                   <label for="Ctrl-sketchWarmth">Sepia vs. Graphite Ink Tone</label>
-                  <span class="val" id="val-sketchWarmth">40%</span>
+                  <span class="val" id="val-sketchWarmth">35%</span>
                 </div>
-                <input type="range" id="Ctrl-sketchWarmth" data-param="sketchWarmth" min="0" max="100" step="1" value="40" />
+                <input type="range" id="Ctrl-sketchWarmth" data-param="sketchWarmth" data-group="sketch" min="0" max="100" step="1" value="35" />
               </div>
             </div>
           </details>
 
           <!-- Group 5: Cold-Press Paper & Atmospheric Wash -->
-          <details class="control-group" open>
+          <details class="control-group" data-group="paper" open>
             <summary>
-              <span class="group-title">📜 Paper Texture &amp; Outer Clouds</span>
+              <span class="group-title">
+                <span class="group-dot" style="background:#34d399"></span>
+                Paper Grain &amp; Outer Clouds
+              </span>
+              <button type="button" class="group-reset-btn" data-reset-group="paper" title="Reset Paper &amp; Cloud parameters">Reset</button>
             </summary>
             <div class="group-body">
-              <div class="control-row">
+              <div class="control-row" data-label="cold press paper tooth grain texture">
                 <div class="control-label">
                   <label for="Ctrl-paperGrain">Cold-Press Paper Tooth</label>
-                  <span class="val" id="val-paperGrain">60%</span>
+                  <span class="val" id="val-paperGrain">58%</span>
                 </div>
-                <input type="range" id="Ctrl-paperGrain" data-param="paperGrain" min="0" max="100" step="1" value="60" />
+                <input type="range" id="Ctrl-paperGrain" data-param="paperGrain" data-group="paper" min="0" max="100" step="1" value="58" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="outer grey watercolor clouds atmosphere">
                 <div class="control-label">
-                  <label for="Ctrl-outerCloudWash">Outer Grey Watercolor Clouds</label>
-                  <span class="val" id="val-outerCloudWash">45%</span>
+                  <label for="Ctrl-outerCloudWash">Atmospheric Outer Cloud Wash</label>
+                  <span class="val" id="val-outerCloudWash">15%</span>
                 </div>
-                <input type="range" id="Ctrl-outerCloudWash" data-param="outerCloudWash" min="0" max="100" step="1" value="45" />
+                <input type="range" id="Ctrl-outerCloudWash" data-param="outerCloudWash" data-group="paper" min="0" max="100" step="1" value="15" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="white paper dry brush gaps show through">
                 <div class="control-label">
-                  <label for="Ctrl-paperShowThrough">White Paper Dry-Brush Gaps</label>
-                  <span class="val" id="val-paperShowThrough">25%</span>
+                  <label for="Ctrl-paperShowThrough">Dry-Brush Paper Show-Through</label>
+                  <span class="val" id="val-paperShowThrough">22%</span>
                 </div>
-                <input type="range" id="Ctrl-paperShowThrough" data-param="paperShowThrough" min="0" max="100" step="1" value="25" />
+                <input type="range" id="Ctrl-paperShowThrough" data-param="paperShowThrough" data-group="paper" min="0" max="100" step="1" value="22" />
               </div>
             </div>
           </details>
 
           <!-- Group 6: Color Grading & Luminous Glaze -->
-          <details class="control-group" open>
+          <details class="control-group" data-group="grading" open>
             <summary>
-              <span class="group-title">🌈 Pigment Vibrancy &amp; Lighting</span>
+              <span class="group-title">
+                <span class="group-dot" style="background:#fb7185"></span>
+                Pigment Vibrancy &amp; Glaze
+              </span>
+              <button type="button" class="group-reset-btn" data-reset-group="grading" title="Reset Vibrancy &amp; Glaze parameters">Reset</button>
             </summary>
             <div class="group-body">
-              <div class="control-row">
+              <div class="control-row" data-label="pigment saturation boost vibrancy">
                 <div class="control-label">
-                  <label for="Ctrl-vibrancy">Pigment Saturation Boost</label>
-                  <span class="val" id="val-vibrancy">30%</span>
+                  <label for="Ctrl-vibrancy">Pigment Vibrancy (Saturation)</label>
+                  <span class="val" id="val-vibrancy">+32%</span>
                 </div>
-                <input type="range" id="Ctrl-vibrancy" data-param="vibrancy" min="-50" max="100" step="1" value="30" />
+                <input type="range" id="Ctrl-vibrancy" data-param="vibrancy" data-group="grading" min="-50" max="100" step="1" value="32" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="highlight airiness glow luminosity brightness">
                 <div class="control-label">
-                  <label for="Ctrl-luminosity">Highlight Airiness &amp; Glow</label>
-                  <span class="val" id="val-luminosity">18%</span>
+                  <label for="Ctrl-luminosity">Luminous Glaze (Brightness)</label>
+                  <span class="val" id="val-luminosity">+18%</span>
                 </div>
-                <input type="range" id="Ctrl-luminosity" data-param="luminosity" min="-40" max="60" step="1" value="18" />
+                <input type="range" id="Ctrl-luminosity" data-param="luminosity" data-group="grading" min="-40" max="60" step="1" value="18" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="pigment depth contrast tonal range">
                 <div class="control-label">
-                  <label for="Ctrl-contrast">Pigment Depth (Contrast)</label>
-                  <span class="val" id="val-contrast">12%</span>
+                  <label for="Ctrl-contrast">Pigment Tonal Contrast</label>
+                  <span class="val" id="val-contrast">+14%</span>
                 </div>
-                <input type="range" id="Ctrl-contrast" data-param="contrast" min="-40" max="60" step="1" value="12" />
+                <input type="range" id="Ctrl-contrast" data-param="contrast" data-group="grading" min="-40" max="60" step="1" value="14" />
               </div>
 
-              <div class="control-row">
+              <div class="control-row" data-label="color temperature shift warmth cool">
                 <div class="control-label">
-                  <label for="Ctrl-warmth">Color Temperature Shift</label>
-                  <span class="val" id="val-warmth">8%</span>
+                  <label for="Ctrl-warmth">Color Temperature (Warmth)</label>
+                  <span class="val" id="val-warmth">+8%</span>
                 </div>
-                <input type="range" id="Ctrl-warmth" data-param="warmth" min="-50" max="50" step="1" value="8" />
+                <input type="range" id="Ctrl-warmth" data-param="warmth" data-group="grading" min="-50" max="50" step="1" value="8" />
               </div>
             </div>
           </details>
         </div>
       </aside>
     </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div class="modal-backdrop hidden" id="shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="shortcuts-title">Studio Keyboard Shortcuts</h3>
+          <button class="btn-icon" id="close-shortcuts-btn" aria-label="Close modal">✕</button>
+        </div>
+        <div class="shortcut-list">
+          <div class="shortcut-item"><span>Switch View Mode (Artwork / Split / Original / Mask)</span><div><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></div></div>
+          <div class="shortcut-item"><span>Hold to Peek Original Photograph</span><div><kbd>Space</kbd></div></div>
+          <div class="shortcut-item"><span>Decrease / Increase Mask Brush Radius</span><div><kbd>[</kbd> <kbd>]</kbd></div></div>
+          <div class="shortcut-item"><span>Re-Roll Deterministic Splatter Seed</span><div><kbd>R</kbd></div></div>
+          <div class="shortcut-item"><span>Undo / Redo Parameter or Mask Edit</span><div><kbd>⌘/Ctrl</kbd> + <kbd>Z</kbd></div></div>
+          <div class="shortcut-item"><span>Reset Individual Slider to Preset Default</span><div><kbd>Double-Click</kbd></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Studio Toast Notification Container -->
+    <div class="toast-container" id="toast-container" aria-live="polite"></div>
   </div>
 
   <script src="engine.js"></script>

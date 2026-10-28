@@ -1,12 +1,68 @@
 /**
- * SplashCanvas — Interactive UI Controller, Presets & Sample Scene Generator
+ * @fileoverview SplashCanvas Studio Application Controller (`app.js`)
+ *
+ * Responsibilities:
+ * - Curated free-to-use Unsplash reference photograph gallery (`SAMPLE_CATALOG`)
+ *   with CORS-enabled loading, photographer attribution, and automatic offline
+ *   procedural fallback synthesis.
+ * - 8 studio watercolor style presets (`PRESETS`) with pigment swatch metadata.
+ * - Bounded 25-step Undo/Redo state history (`HistoryManager`) covering parameter
+ *   adjustments, preset changes, seed re-rolls, and manual mask brush strokes.
+ * - Real-time UI synchronization: CSS active slider progress fills, double-click
+ *   single-parameter reset, per-section reset, live parameter search filtering,
+ *   keyboard shortcuts (`1-4`, `Space`, `[/]`, `R`, `Cmd/Ctrl+Z`, `?`), and
+ *   multi-scale PNG export (`1x`, `1.5x`, `2x`).
  */
 
-const PRESETS = [
+/**
+ * Curated free-to-use high-resolution Unsplash reference photographs.
+ * Served via `images.unsplash.com` with `Access-Control-Allow-Origin: *`
+ * for zero-taint HTML5 Canvas pixel manipulation.
+ */
+const SAMPLE_CATALOG = Object.freeze({
+  portrait: {
+    id: "portrait",
+    title: "Expressive Studio Portrait",
+    url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1080&q=85",
+    photographer: "Aiony Haust",
+    photographerUrl: "https://unsplash.com/photos/7YVZYZeITc8",
+    recommendedPreset: "fiverr-classic",
+  },
+  pet: {
+    id: "pet",
+    title: "Golden Retriever Outdoors",
+    url: "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=1080&q=85",
+    photographer: "Berkay Gumustekin",
+    photographerUrl: "https://unsplash.com/photos/ngqyo2AYYnE",
+    recommendedPreset: "fiverr-classic",
+  },
+  surfers: {
+    id: "surfers",
+    title: "Coastal Surfer & Ocean Spray",
+    url: "https://images.unsplash.com/photo-1502680390469-be75c86b636f?auto=format&fit=crop&w=1080&q=85",
+    photographer: "Jeremy Bishop",
+    photographerUrl: "https://unsplash.com/photos/pikyGuAmwpM",
+    recommendedPreset: "expressive-splash",
+  },
+  architecture: {
+    id: "architecture",
+    title: "Venetian Canal Architecture",
+    url: "https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=1080&q=85",
+    photographer: "Damiano Baschiera",
+    photographerUrl: "https://unsplash.com/photos/hFXZ5cNfkOk",
+    recommendedPreset: "ink-and-wash",
+  },
+});
+
+/**
+ * Studio Watercolor Presets.
+ */
+const PRESETS = Object.freeze([
   {
     id: "fiverr-classic",
-    name: "🎨 Fiverr Classic",
-    desc: "Vibrant portrait cutout + color-matched splatters",
+    name: "Bespoke Portrait",
+    desc: "Crisp subject cutout + color-matched splatters",
+    swatches: ["#38bdf8", "#f43f5e", "#facc15"],
     params: {
       brushRadius: 4,
       wetSmoothness: 45,
@@ -39,8 +95,9 @@ const PRESETS = [
   },
   {
     id: "cloud-storybook",
-    name: "☁️ Cloud Wash",
-    desc: "Atmospheric grey watercolor clouds around subject",
+    name: "Atmospheric Cloud",
+    desc: "Soft grey watercolor clouds around subject",
+    swatches: ["#94a3b8", "#60a5fa", "#cbd5e1"],
     params: {
       brushRadius: 4,
       wetSmoothness: 50,
@@ -73,8 +130,9 @@ const PRESETS = [
   },
   {
     id: "ink-and-wash",
-    name: "✒️ Line & Wash",
-    desc: "Crisp architectural & portrait ink sketch + glaze",
+    name: "Line & Wash",
+    desc: "Architectural & portrait ink contour + glaze",
+    swatches: ["#fbbf24", "#78350f", "#38bdf8"],
     params: {
       brushRadius: 5,
       wetSmoothness: 55,
@@ -107,8 +165,9 @@ const PRESETS = [
   },
   {
     id: "expressive-splash",
-    name: "💥 Expressive Splash",
-    desc: "Bold pigment bursts, heavy drips & dynamic energy",
+    name: "Expressive Splash",
+    desc: "Bold pigment bursts, heavy drips & high energy",
+    swatches: ["#ec4899", "#8b5cf6", "#06b6d4"],
     params: {
       brushRadius: 6,
       wetSmoothness: 60,
@@ -141,8 +200,9 @@ const PRESETS = [
   },
   {
     id: "dreamy-pastel",
-    name: "🌸 Soft Pastel",
-    desc: "Airy bridal & baby portrait wash with gentle bloom",
+    name: "Soft Pastel Glaze",
+    desc: "Airy bridal & baby wash with gentle bloom",
+    swatches: ["#f9a8d4", "#c4b5fd", "#fde68a"],
     params: {
       brushRadius: 5,
       wetSmoothness: 72,
@@ -175,8 +235,9 @@ const PRESETS = [
   },
   {
     id: "dry-brush-atelier",
-    name: "🏛️ Dry-Brush Studio",
-    desc: "Textured cotton rag tooth with broken brush edges",
+    name: "Dry-Brush Atelier",
+    desc: "Heavy cotton rag tooth with broken brush edges",
+    swatches: ["#d97706", "#059669", "#dc2626"],
     params: {
       brushRadius: 7,
       wetSmoothness: 30,
@@ -209,8 +270,9 @@ const PRESETS = [
   },
   {
     id: "full-scene-aquarelle",
-    name: "🖼️ Full Landscape",
-    desc: "Paints the entire photo edge-to-edge on cotton paper",
+    name: "Full-Bleed Scene",
+    desc: "Paints the entire photograph edge-to-edge",
+    swatches: ["#10b981", "#3b82f6", "#f59e0b"],
     params: {
       brushRadius: 5,
       wetSmoothness: 55,
@@ -243,8 +305,9 @@ const PRESETS = [
   },
   {
     id: "botanical-vintage",
-    name: "🌿 Vintage Botanical",
-    desc: "Warm sepia undertones, delicate washes & aged paper",
+    name: "Botanical Sepia",
+    desc: "Warm archival undertones & delicate washes",
+    swatches: ["#a16207", "#65a30d", "#d6d3d1"],
     params: {
       brushRadius: 4,
       wetSmoothness: 52,
@@ -275,29 +338,87 @@ const PRESETS = [
       paperTint: "#ede6d6",
     },
   },
-];
+]);
 
+/**
+ * Bounded Undo/Redo State Stack for non-destructive studio editing.
+ */
+class HistoryManager {
+  /**
+   * @param {number} [maxDepth=25]
+   */
+  constructor(maxDepth = 25) {
+    this.maxDepth = maxDepth;
+    this.undoStack = [];
+    this.redoStack = [];
+  }
+
+  /**
+   * Pushes a state snapshot onto the undo stack and clears the redo stack.
+   * @param {Object} snapshot
+   */
+  push(snapshot) {
+    this.undoStack.push(snapshot);
+    if (this.undoStack.length > this.maxDepth) {
+      this.undoStack.shift();
+    }
+    this.redoStack.length = 0;
+  }
+
+  /**
+   * @param {Object} currentState
+   * @returns {Object|null}
+   */
+  undo(currentState) {
+    if (this.undoStack.length === 0) return null;
+    this.redoStack.push(currentState);
+    return this.undoStack.pop();
+  }
+
+  /**
+   * @param {Object} currentState
+   * @returns {Object|null}
+   */
+  redo(currentState) {
+    if (this.redoStack.length === 0) return null;
+    this.undoStack.push(currentState);
+    return this.redoStack.pop();
+  }
+
+  clear() {
+    this.undoStack.length = 0;
+    this.redoStack.length = 0;
+  }
+}
+
+/**
+ * Main Studio UI Controller.
+ */
 class SplashCanvasApp {
   constructor() {
     this.engine = new WatercolorEngine();
+    this.history = new HistoryManager(25);
     this.currentPresetId = PRESETS[0].id;
     this.params = { ...PRESETS[0].params };
     this.viewMode = "result"; // 'result' | 'split' | 'original' | 'mask'
-    this.brushMode = "none"; // 'none' | 'restore' | 'erase'
+    this.isPeekingOriginal = false;
+    this.brushMode = "none";  // 'none' | 'restore' | 'erase'
     this.brushSize = 65;
     this.brushSoftness = 75;
     this.zoom = 1.0;
     this.splitPos = 0.5;
     this.currentImageElement = null;
+    this.currentSampleId = "portrait";
     this.renderPending = false;
+    this._sliderPreDragState = null;
 
     this._cacheDOM();
     this._buildPresetCards();
     this._bindEvents();
     this._syncUIFromParams();
 
-    // Load default beach surfer sample scene on startup
-    this.loadSampleScene("surfers");
+    // Load default real free-to-use photograph from Unsplash ("portrait")
+    this.loadSampleScene("portrait", false);
   }
 
   _cacheDOM() {
@@ -307,7 +428,8 @@ class SplashCanvasApp {
     this.canvasViewport = document.getElementById("canvas-viewport");
     this.presetGrid = document.getElementById("preset-grid");
     this.renderTimeLabel = document.getElementById("render-time-label");
-    this.statusDot = document.querySelector(".status-dot");
+    this.statusDot = document.getElementById("status-dot");
+    this.seedReadout = document.getElementById("seed-readout");
     this.splitSlider = document.getElementById("split-slider");
     this.brushCursor = document.getElementById("brush-cursor");
     this.dropOverlay = document.getElementById("drop-overlay");
@@ -315,23 +437,105 @@ class SplashCanvasApp {
     this.sampleMenuBtn = document.getElementById("sample-menu-btn");
     this.sampleMenu = document.getElementById("sample-menu");
     this.aiStatusBadge = document.getElementById("ai-status-badge");
+    this.paperNameLabel = document.getElementById("paper-name-label");
+    this.photoCredit = document.getElementById("photo-credit");
+    this.undoBtn = document.getElementById("undo-btn");
+    this.redoBtn = document.getElementById("redo-btn");
+    this.holdCompareBtn = document.getElementById("hold-compare-btn");
+    this.paramSearchInput = document.getElementById("param-search-input");
+    this.shortcutsModal = document.getElementById("shortcuts-modal");
+    this.toastContainer = document.getElementById("toast-container");
   }
 
   _buildPresetCards() {
     this.presetGrid.innerHTML = "";
     PRESETS.forEach((preset) => {
       const btn = document.createElement("button");
+      btn.type = "button";
       btn.className = `preset-card ${
         preset.id === this.currentPresetId ? "active" : ""
       }`;
       btn.dataset.presetId = preset.id;
+      const dotsHtml = (preset.swatches || [])
+        .map(
+          (c) => `<span class="preset-swatch-dot" style="background:${c}"></span>`
+        )
+        .join("");
+
       btn.innerHTML = `
-        <div class="preset-name">${preset.name}</div>
+        <div class="preset-top">
+          <span class="preset-name">${preset.name}</span>
+          <span class="preset-swatches">${dotsHtml}</span>
+        </div>
         <div class="preset-desc">${preset.desc}</div>
       `;
-      btn.addEventListener("click", () => this.applyPreset(preset.id));
+      btn.addEventListener("click", () => {
+        this._recordHistorySnapshot();
+        this.applyPreset(preset.id);
+        this.showToast(`Applied "${preset.name}" preset`);
+      });
       this.presetGrid.appendChild(btn);
     });
+  }
+
+  /**
+   * Captures current parameter & brush state for Undo/Redo.
+   * @returns {Object}
+   */
+  _captureStateSnapshot() {
+    return {
+      presetId: this.currentPresetId,
+      params: { ...this.params },
+      seed: this.engine.seed,
+      brushMask: this.engine.cloneUserBrushMask(),
+    };
+  }
+
+  _recordHistorySnapshot() {
+    this.history.push(this._captureStateSnapshot());
+    this._updateHistoryButtons();
+  }
+
+  _applyStateSnapshot(snapshot) {
+    if (!snapshot) return;
+    this.currentPresetId = snapshot.presetId;
+    this.params = { ...snapshot.params };
+    if (snapshot.seed !== this.engine.seed) {
+      this.engine.setSeed(snapshot.seed);
+      this.seedReadout.textContent = `#${snapshot.seed}`;
+    }
+    this.engine.restoreUserBrushMask(snapshot.brushMask);
+    document.querySelectorAll(".preset-card").forEach((el) => {
+      el.classList.toggle("active", el.dataset.presetId === this.currentPresetId);
+    });
+    this._syncUIFromParams();
+    this._updateHistoryButtons();
+    this.scheduleRender();
+  }
+
+  _updateHistoryButtons() {
+    if (this.undoBtn) {
+      this.undoBtn.disabled = this.history.undoStack.length === 0;
+    }
+    if (this.redoBtn) {
+      this.redoBtn.disabled = this.history.redoStack.length === 0;
+    }
+  }
+
+  undo() {
+    const prev = this.history.undo(this._captureStateSnapshot());
+    if (prev) {
+      this._applyStateSnapshot(prev);
+      this.showToast("Undid last action");
+    }
+  }
+
+  redo() {
+    const next = this.history.redo(this._captureStateSnapshot());
+    if (next) {
+      this._applyStateSnapshot(next);
+      this.showToast("Redid action");
+    }
   }
 
   applyPreset(presetId) {
@@ -349,12 +553,12 @@ class SplashCanvasApp {
   }
 
   _syncUIFromParams() {
-    // Update all sliders & value readouts
     document.querySelectorAll("input[data-param]").forEach((input) => {
       const key = input.dataset.param;
       if (this.params[key] !== undefined) {
         input.value = this.params[key];
         this._updateSliderLabel(key, this.params[key]);
+        this._updateRangeFillProgress(input);
       }
     });
 
@@ -367,13 +571,38 @@ class SplashCanvasApp {
     });
 
     // Paper tint swatches
+    let activePaperName = "Cold-Press White";
     document.querySelectorAll(".swatch").forEach((sw) => {
-      sw.classList.toggle(
-        "active",
+      const isMatch =
         sw.dataset.tint.toLowerCase() ===
-          (this.params.paperTint || "#f6f5f0").toLowerCase()
-      );
+        (this.params.paperTint || "#f6f5f0").toLowerCase();
+      sw.classList.toggle("active", isMatch);
+      if (isMatch && sw.dataset.name) {
+        activePaperName = sw.dataset.name;
+      }
     });
+    if (this.paperNameLabel) {
+      this.paperNameLabel.textContent = activePaperName;
+    }
+
+    // Also update brush size/softness slider fills
+    const brushSizeInput = document.getElementById("brush-size");
+    const brushSoftInput = document.getElementById("brush-softness");
+    if (brushSizeInput) this._updateRangeFillProgress(brushSizeInput);
+    if (brushSoftInput) this._updateRangeFillProgress(brushSoftInput);
+  }
+
+  /**
+   * Updates the `--fill-pct` CSS custom property on a range input so its
+   * active track gradient matches the thumb position.
+   * @param {HTMLInputElement} input
+   */
+  _updateRangeFillProgress(input) {
+    const min = parseFloat(input.min) || 0;
+    const max = parseFloat(input.max) || 100;
+    const val = parseFloat(input.value) || 0;
+    const pct = Math.max(0, Math.min(100, ((val - min) / (max - min)) * 100));
+    input.style.setProperty("--fill-pct", `${pct.toFixed(1)}%`);
   }
 
   _updateSliderLabel(param, value) {
@@ -391,21 +620,126 @@ class SplashCanvasApp {
     }
   }
 
+  /**
+   * Resets a single parameter back to the active preset's default value.
+   * @param {string} paramKey
+   */
+  resetSingleParameter(paramKey) {
+    const activePreset =
+      PRESETS.find((p) => p.id === this.currentPresetId) || PRESETS[0];
+    if (activePreset.params[paramKey] === undefined) return;
+    const defaultVal = activePreset.params[paramKey];
+    if (this.params[paramKey] === defaultVal) return;
+
+    this._recordHistorySnapshot();
+    this.params[paramKey] = defaultVal;
+    this._syncUIFromParams();
+    this.scheduleRender();
+    this.showToast(`Reset ${paramKey} to ${defaultVal}`);
+  }
+
+  /**
+   * Resets all parameters belonging to a specific control group (`brush`, `wash`, `splatter`, `sketch`, `paper`, `grading`).
+   * @param {string} groupName
+   */
+  resetParameterGroup(groupName) {
+    const activePreset =
+      PRESETS.find((p) => p.id === this.currentPresetId) || PRESETS[0];
+    const groupInputs = document.querySelectorAll(
+      `input[data-param][data-group="${groupName}"]`
+    );
+    if (!groupInputs.length) return;
+
+    this._recordHistorySnapshot();
+    groupInputs.forEach((input) => {
+      const key = input.dataset.param;
+      if (activePreset.params[key] !== undefined) {
+        this.params[key] = activePreset.params[key];
+      }
+    });
+    this._syncUIFromParams();
+    this.scheduleRender();
+    this.showToast(`Reset ${groupName} section to preset defaults`);
+  }
+
   _bindEvents() {
-    // Slider inputs
+    // Slider inputs: record history on pointerdown, live-render on input, double-click to reset
     document.querySelectorAll("input[data-param]").forEach((input) => {
+      input.addEventListener("pointerdown", () => {
+        this._sliderPreDragState = this._captureStateSnapshot();
+      });
+
+      input.addEventListener("change", () => {
+        if (this._sliderPreDragState) {
+          this.history.push(this._sliderPreDragState);
+          this._sliderPreDragState = null;
+          this._updateHistoryButtons();
+        }
+      });
+
       input.addEventListener("input", (e) => {
         const key = e.target.dataset.param;
         const val = parseFloat(e.target.value);
         this.params[key] = val;
         this._updateSliderLabel(key, val);
+        this._updateRangeFillProgress(e.target);
         this.scheduleRender();
       });
+
+      input.addEventListener("dblclick", (e) => {
+        this.resetSingleParameter(e.target.dataset.param);
+      });
+
+      const row = input.closest(".control-row");
+      if (row) {
+        const lbl = row.querySelector("label");
+        if (lbl) {
+          lbl.title = "Double-click to reset parameter to preset default";
+          lbl.addEventListener("dblclick", (e) => {
+            e.preventDefault();
+            this.resetSingleParameter(input.dataset.param);
+          });
+        }
+      }
     });
+
+    // Per-section Reset buttons inside <summary>
+    document.querySelectorAll(".group-reset-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.resetParameterGroup(btn.dataset.resetGroup);
+      });
+    });
+
+    // Parameter Filter / Search bar
+    if (this.paramSearchInput) {
+      this.paramSearchInput.addEventListener("input", (e) => {
+        const q = e.target.value.trim().toLowerCase();
+        document.querySelectorAll(".control-group").forEach((group) => {
+          let visibleCount = 0;
+          group.querySelectorAll(".control-row").forEach((row) => {
+            const haystack = (
+              (row.dataset.label || "") +
+              " " +
+              row.textContent
+            ).toLowerCase();
+            const match = !q || haystack.includes(q);
+            row.classList.toggle("hidden", !match);
+            if (match) visibleCount++;
+          });
+          group.classList.toggle("hidden", visibleCount === 0);
+          if (q && visibleCount > 0) {
+            group.setAttribute("open", "");
+          }
+        });
+      });
+    }
 
     // Cutout Mode buttons
     document.querySelectorAll(".mode-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
+        this._recordHistorySnapshot();
         this.params.cutoutMode = btn.dataset.cutout;
         document
           .querySelectorAll(".mode-btn")
@@ -417,7 +751,11 @@ class SplashCanvasApp {
     // Paper Tint Swatches
     document.querySelectorAll(".swatch").forEach((sw) => {
       sw.addEventListener("click", () => {
+        this._recordHistorySnapshot();
         this.params.paperTint = sw.dataset.tint;
+        if (this.paperNameLabel && sw.dataset.name) {
+          this.paperNameLabel.textContent = sw.dataset.name;
+        }
         document
           .querySelectorAll(".swatch")
           .forEach((s) => s.classList.toggle("active", s === sw));
@@ -428,14 +766,28 @@ class SplashCanvasApp {
     // View Toggles (Artwork, Split, Original, Mask)
     document.querySelectorAll(".pill-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        this.viewMode = btn.dataset.view;
-        document
-          .querySelectorAll(".pill-btn")
-          .forEach((b) => b.classList.toggle("active", b === btn));
-        this._updateViewModeUI();
-        this.scheduleRender();
+        this.setViewMode(btn.dataset.view);
       });
     });
+
+    // Hold to Peek Original button
+    if (this.holdCompareBtn) {
+      const startPeek = () => {
+        if (this.isPeekingOriginal) return;
+        this.isPeekingOriginal = true;
+        this.holdCompareBtn.classList.add("peeking");
+        this.scheduleRender();
+      };
+      const endPeek = () => {
+        if (!this.isPeekingOriginal) return;
+        this.isPeekingOriginal = false;
+        this.holdCompareBtn.classList.remove("peeking");
+        this.scheduleRender();
+      };
+      this.holdCompareBtn.addEventListener("pointerdown", startPeek);
+      window.addEventListener("pointerup", endPeek);
+      this.holdCompareBtn.addEventListener("pointerleave", endPeek);
+    }
 
     // Brush Mode Buttons
     document.querySelectorAll(".brush-btn").forEach((btn) => {
@@ -456,15 +808,19 @@ class SplashCanvasApp {
     brushSizeInput.addEventListener("input", (e) => {
       this.brushSize = parseInt(e.target.value, 10);
       document.getElementById("val-brush-size").textContent = `${this.brushSize}px`;
+      this._updateRangeFillProgress(e.target);
     });
     brushSoftInput.addEventListener("input", (e) => {
       this.brushSoftness = parseInt(e.target.value, 10);
       document.getElementById("val-brush-softness").textContent = `${this.brushSoftness}%`;
+      this._updateRangeFillProgress(e.target);
     });
 
     document.getElementById("clear-brush-btn").addEventListener("click", () => {
+      this._recordHistorySnapshot();
       this.engine.clearUserBrushMask();
       this.scheduleRender();
+      this.showToast("Cleared manual brush mask edits");
     });
 
     // Interactive Painting on Canvas
@@ -505,6 +861,7 @@ class SplashCanvasApp {
 
     this.canvasContainer.addEventListener("pointerdown", (e) => {
       if (this.brushMode !== "none") {
+        this._recordHistorySnapshot();
         isPainting = true;
         handleCanvasPointer(e, true);
       }
@@ -563,29 +920,48 @@ class SplashCanvasApp {
     // Sample Photos Menu
     this.sampleMenuBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      this.sampleMenu.classList.toggle("open");
+      const isOpen = this.sampleMenu.classList.toggle("open");
+      this.sampleMenuBtn.setAttribute("aria-expanded", String(isOpen));
     });
     window.addEventListener("click", () => {
       this.sampleMenu.classList.remove("open");
+      this.sampleMenuBtn.setAttribute("aria-expanded", "false");
     });
-    this.sampleMenu.querySelectorAll("button").forEach((btn) => {
+    this.sampleMenu.querySelectorAll("button[data-sample]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        this.loadSampleScene(btn.dataset.sample);
+        this.loadSampleScene(btn.dataset.sample, true);
       });
     });
 
-    // Top Actions: Re-roll Splatters, Reset, Export, Zoom
+    // Undo / Redo / Seed / Reset / Export
+    if (this.undoBtn) {
+      this.undoBtn.addEventListener("click", () => this.undo());
+    }
+    if (this.redoBtn) {
+      this.redoBtn.addEventListener("click", () => this.redo());
+    }
+
+    const rerollSeed = () => {
+      this._recordHistorySnapshot();
+      const nextSeed = Math.floor(Math.random() * 90000) + 1000;
+      this.engine.setSeed(nextSeed);
+      this.seedReadout.textContent = `#${nextSeed}`;
+      this.scheduleRender();
+      this.showToast(`Re-rolled splatter seed (#${nextSeed})`);
+    };
+
     document
       .getElementById("randomize-seed-btn")
-      .addEventListener("click", () => {
-        const nextSeed = Math.floor(Math.random() * 90000) + 1000;
-        this.engine.setSeed(nextSeed);
-        this.scheduleRender();
-      });
+      .addEventListener("click", rerollSeed);
+    document
+      .getElementById("seed-pill-btn")
+      .addEventListener("click", rerollSeed);
 
     document.getElementById("reset-all-btn").addEventListener("click", () => {
+      this._recordHistorySnapshot();
       this.engine.clearUserBrushMask();
       this.applyPreset(this.currentPresetId);
+      this.showToast("Reset all parameters to preset defaults");
     });
 
     document.getElementById("export-btn").addEventListener("click", () => {
@@ -610,7 +986,7 @@ class SplashCanvasApp {
       });
     }
 
-    // Zoom Controls
+    // Zoom Controls & Wheel Zoom
     document.getElementById("zoom-in-btn").addEventListener("click", () => {
       this.setZoom(Math.min(2.5, this.zoom + 0.2));
     });
@@ -620,6 +996,104 @@ class SplashCanvasApp {
     document.getElementById("zoom-fit-btn").addEventListener("click", () => {
       this.setZoom(1.0);
     });
+
+    this.canvasViewport.addEventListener(
+      "wheel",
+      (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const delta = e.deltaY < 0 ? 0.12 : -0.12;
+          this.setZoom(Math.max(0.5, Math.min(2.5, this.zoom + delta)));
+        }
+      },
+      { passive: false }
+    );
+
+    // Shortcuts Modal
+    const shortcutsBtn = document.getElementById("shortcuts-btn");
+    const closeShortcutsBtn = document.getElementById("close-shortcuts-btn");
+    if (shortcutsBtn && this.shortcutsModal) {
+      shortcutsBtn.addEventListener("click", () => {
+        this.shortcutsModal.classList.remove("hidden");
+      });
+      closeShortcutsBtn.addEventListener("click", () => {
+        this.shortcutsModal.classList.add("hidden");
+      });
+      this.shortcutsModal.addEventListener("click", (e) => {
+        if (e.target === this.shortcutsModal) {
+          this.shortcutsModal.classList.add("hidden");
+        }
+      });
+    }
+
+    // Global Studio Keyboard Shortcuts
+    window.addEventListener("keydown", (e) => {
+      const tag = (e.target && e.target.tagName) || "";
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+        if (e.key === "Escape") e.target.blur();
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) this.redo();
+        else this.undo();
+        return;
+      }
+
+      if (e.code === "Space" && !e.repeat) {
+        e.preventDefault();
+        this.isPeekingOriginal = true;
+        if (this.holdCompareBtn) this.holdCompareBtn.classList.add("peeking");
+        this.scheduleRender();
+        return;
+      }
+
+      if (e.key === "1") this.setViewMode("result");
+      else if (e.key === "2") this.setViewMode("split");
+      else if (e.key === "3") this.setViewMode("original");
+      else if (e.key === "4") this.setViewMode("mask");
+      else if (e.key === "[") {
+        this.brushSize = Math.max(10, this.brushSize - 10);
+        const inp = document.getElementById("brush-size");
+        inp.value = this.brushSize;
+        document.getElementById("val-brush-size").textContent = `${this.brushSize}px`;
+        this._updateRangeFillProgress(inp);
+      } else if (e.key === "]") {
+        this.brushSize = Math.min(220, this.brushSize + 10);
+        const inp = document.getElementById("brush-size");
+        inp.value = this.brushSize;
+        document.getElementById("val-brush-size").textContent = `${this.brushSize}px`;
+        this._updateRangeFillProgress(inp);
+      } else if (e.key.toLowerCase() === "r" && !e.metaKey && !e.ctrlKey) {
+        rerollSeed();
+      } else if (e.key === "?") {
+        if (this.shortcutsModal) {
+          this.shortcutsModal.classList.toggle("hidden");
+        }
+      } else if (e.key === "Escape") {
+        if (this.shortcutsModal) {
+          this.shortcutsModal.classList.add("hidden");
+        }
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "Space" && this.isPeekingOriginal) {
+        this.isPeekingOriginal = false;
+        if (this.holdCompareBtn) this.holdCompareBtn.classList.remove("peeking");
+        this.scheduleRender();
+      }
+    });
+  }
+
+  setViewMode(mode) {
+    this.viewMode = mode;
+    document.querySelectorAll(".pill-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.view === mode);
+    });
+    this._updateViewModeUI();
+    this.scheduleRender();
   }
 
   setZoom(z) {
@@ -630,7 +1104,7 @@ class SplashCanvasApp {
   }
 
   _updateViewModeUI() {
-    if (this.viewMode === "split") {
+    if (this.viewMode === "split" && !this.isPeekingOriginal) {
       this.originalOverlayCanvas.classList.remove("hidden");
       this.splitSlider.classList.remove("hidden");
       this._updateSplitClip();
@@ -647,16 +1121,43 @@ class SplashCanvasApp {
     this.splitSlider.querySelector(".split-handle").style.left = `${pct}%`;
   }
 
+  /**
+   * Displays a non-blocking studio toast notification.
+   * @param {string} message
+   */
+  showToast(message) {
+    if (!this.toastContainer) return;
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.textContent = message;
+    this.toastContainer.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transition = "opacity 0.2s ease";
+      setTimeout(() => toast.remove(), 220);
+    }, 2200);
+  }
+
+  /**
+   * Loads a user-selected local image file via FileReader.
+   * @param {File} file
+   */
   loadUserFile(file) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const img = new Image();
       img.onload = () => {
         this.currentImageElement = img;
-        this.aiStatusBadge.textContent = "Smart Mask";
+        this.history.clear();
+        this._updateHistoryButtons();
+        this.aiStatusBadge.textContent = "Saliency Mask";
         this.engine.loadImage(img, 1080);
         this._drawOriginalOverlay();
+        if (this.photoCredit) {
+          this.photoCredit.textContent = `Local File: ${file.name} (${img.naturalWidth}×${img.naturalHeight})`;
+        }
         this.scheduleRender();
+        this.showToast(`Loaded "${file.name}"`);
       };
       img.src = ev.target.result;
     };
@@ -680,17 +1181,19 @@ class SplashCanvasApp {
   }
 
   /**
-   * Optional Precision AI Subject Segmentation using MediaPipe SelfieSegmentation
+   * Optional Precision Neural Subject Segmentation via MediaPipe SelfieSegmentation.
+   * Fuses neural person probabilities with local saliency so held objects/pets remain intact.
    */
   async runMediaPipeCutout() {
     const btn = document.getElementById("ai-cutout-btn");
-    const origText = btn.textContent;
-    btn.textContent = "⏳ Running Neural Cutout...";
+    const labelSpan = document.getElementById("ai-cutout-btn-label");
+    const origText = labelSpan ? labelSpan.textContent : "Run Neural Subject Cutout";
+    if (labelSpan) labelSpan.textContent = "Running Neural Segmentation...";
     btn.disabled = true;
 
     try {
       if (typeof SelfieSegmentation === "undefined") {
-        throw new Error("Offline mode — using local Smart Subject Mask");
+        throw new Error("MediaPipe CDN unavailable — using local Saliency Mask");
       }
 
       const segmenter = new SelfieSegmentation({
@@ -715,16 +1218,14 @@ class SplashCanvasApp {
           const maskData = ctx.getImageData(0, 0, w, h).data;
           const floatMask = new Float32Array(w * h);
           for (let i = 0; i < w * h; i++) {
-            // Combine AI person mask with local object mask so held props (like surfboards or pets) stay included!
             const aiVal = maskData[i * 4] / 255;
             floatMask[i] = Math.max(aiVal, this.engine.autoSubjectMask[i] * 0.85);
           }
           this.engine.setAISubjectMask(floatMask);
-          this.aiStatusBadge.textContent = "AI Neural Mask Active";
+          this.aiStatusBadge.textContent = "Neural Mask Active";
           resolve();
         });
 
-        // Create temporary canvas from source image
         const tmp = document.createElement("canvas");
         tmp.width = this.engine.width;
         tmp.height = this.engine.height;
@@ -745,24 +1246,21 @@ class SplashCanvasApp {
       this.params.cutoutMode = "smart";
       this._syncUIFromParams();
       this.scheduleRender();
-      btn.textContent = "✅ AI Cutout Applied";
-      setTimeout(() => {
-        btn.textContent = origText;
-        btn.disabled = false;
-      }, 2000);
+      this.showToast("Neural subject cutout applied");
     } catch (err) {
-      // Boost local smart mask contrast if offline
-      this.aiStatusBadge.textContent = "Enhanced Smart Mask";
+      this.aiStatusBadge.textContent = "Enhanced Saliency";
       this.params.cutoutMode = "smart";
       this.scheduleRender();
-      btn.textContent = "✅ Smart Subject Mask Active";
-      setTimeout(() => {
-        btn.textContent = origText;
-        btn.disabled = false;
-      }, 1800);
+      this.showToast("Applied enhanced local saliency cutout");
+    } finally {
+      if (labelSpan) labelSpan.textContent = origText;
+      btn.disabled = false;
     }
   }
 
+  /**
+   * Throttles rendering to `requestAnimationFrame` for 60 FPS slider responsiveness.
+   */
   scheduleRender() {
     if (this.renderPending) return;
     this.renderPending = true;
@@ -770,20 +1268,26 @@ class SplashCanvasApp {
 
     requestAnimationFrame(() => {
       this.renderPending = false;
-      const renderMode =
-        this.viewMode === "split" ? "result" : this.viewMode;
+      this._updateViewModeUI();
+      const effectiveMode = this.isPeekingOriginal
+        ? "original"
+        : this.viewMode === "split"
+        ? "result"
+        : this.viewMode;
+
       const elapsed = this.engine.render(
         this.outputCanvas,
         this.params,
-        renderMode
+        effectiveMode
       );
       this.statusDot.classList.remove("busy");
-      this.renderTimeLabel.textContent = `Rendered in ${Math.round(elapsed)} ms (${this.engine.width}×${this.engine.height})`;
+      const passType = this.engine.lastCacheHit ? "Cached" : "Full Pass";
+      this.renderTimeLabel.textContent = `${Math.round(elapsed)} ms · ${this.engine.width}×${this.engine.height} · ${passType}`;
     });
   }
 
   /**
-   * Export high-resolution PNG artwork
+   * Exports high-resolution PNG artwork (`1x`, `1.5x`, or `2x`).
    */
   exportArtwork() {
     const scaleSelect = document.getElementById("export-scale");
@@ -793,7 +1297,6 @@ class SplashCanvasApp {
     if (mult === 1) {
       this.engine.render(exportCanvas, this.params, "result");
     } else {
-      // Temporarily render at scaled resolution
       const tempEngine = new WatercolorEngine();
       tempEngine.setSeed(this.engine.seed);
       const targetDim = Math.round(
@@ -808,79 +1311,221 @@ class SplashCanvasApp {
     }
 
     const link = document.createElement("a");
-    link.download = `splashcanvas-artwork-${Date.now()}.png`;
+    link.download = `splashcanvas-${this.currentPresetId}-${exportCanvas.width}x${exportCanvas.height}.png`;
     link.href = exportCanvas.toDataURL("image/png");
     link.click();
+    this.showToast(
+      `Exported ${exportCanvas.width}×${exportCanvas.height} PNG print`
+    );
   }
 
   /**
-   * Built-in rich procedural sample scenes so the user can test every slider immediately
-   * (including a "Beach Surfers & Pup" scene modeled directly after the user's reference photo!)
+   * Loads a real, free-to-use high-resolution photograph from `SAMPLE_CATALOG`
+   * with CORS enabled (`crossOrigin = "anonymous"`). Automatically falls back to
+   * local procedural synthesis if the device is offline.
+   *
+   * @param {string} sampleKey
+   * @param {boolean} [notify=true]
    */
-  loadSampleScene(sceneName) {
+  loadSampleScene(sampleKey, notify = true) {
+    const meta = SAMPLE_CATALOG[sampleKey] || SAMPLE_CATALOG.portrait;
+    this.currentSampleId = meta.id;
+
+    // Highlight active item in sample menu
+    this.sampleMenu.querySelectorAll("button[data-sample]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.sample === meta.id);
+    });
+
+    this.statusDot.classList.add("busy");
+    this.renderTimeLabel.textContent = `Loading "${meta.title}"...`;
+
+    const remoteImg = new Image();
+    remoteImg.crossOrigin = "anonymous";
+    let didFinish = false;
+
+    const timeoutId = setTimeout(() => {
+      if (didFinish) return;
+      didFinish = true;
+      this._loadProceduralFallback(meta, notify);
+    }, 6000);
+
+    remoteImg.onload = () => {
+      if (didFinish) return;
+      didFinish = true;
+      clearTimeout(timeoutId);
+
+      this.currentImageElement = remoteImg;
+      this.history.clear();
+      this._updateHistoryButtons();
+      this.aiStatusBadge.textContent = "Saliency Mask";
+      this.engine.loadImage(remoteImg, 1080);
+      this._drawOriginalOverlay();
+
+      if (this.photoCredit) {
+        this.photoCredit.innerHTML = `Sample Photo: <a href="${meta.photographerUrl}" target="_blank" rel="noopener noreferrer">${meta.title}</a> by ${meta.photographer} (Unsplash Free License)`;
+      }
+
+      this.scheduleRender();
+      if (notify) {
+        this.showToast(`Loaded "${meta.title}"`);
+      }
+    };
+
+    remoteImg.onerror = () => {
+      if (didFinish) return;
+      didFinish = true;
+      clearTimeout(timeoutId);
+      this._loadProceduralFallback(meta, notify);
+    };
+
+    remoteImg.src = meta.url;
+  }
+
+  /**
+   * Offline procedural fallback generator so SplashCanvas remains 100% functional
+   * even without internet access.
+   * @private
+   */
+  _loadProceduralFallback(meta, notify) {
     const canvas = document.createElement("canvas");
     canvas.width = 860;
     canvas.height = 1040;
     const ctx = canvas.getContext("2d");
 
-    if (sceneName === "surfers") {
+    if (meta.id === "surfers") {
       this._drawSurfersSample(ctx, canvas.width, canvas.height);
-    } else if (sceneName === "portrait") {
-      this._drawPortraitSample(ctx, canvas.width, canvas.height);
-    } else if (sceneName === "pet") {
+    } else if (meta.id === "pet") {
       this._drawPetSample(ctx, canvas.width, canvas.height);
-    } else {
+    } else if (meta.id === "architecture") {
       this._drawArchitectureSample(ctx, canvas.width, canvas.height);
+    } else {
+      this._drawPortraitSample(ctx, canvas.width, canvas.height);
     }
 
-    const img = new Image();
-    img.onload = () => {
-      this.currentImageElement = img;
-      this.engine.loadImage(img, 1000);
+    const fallbackImg = new Image();
+    fallbackImg.onload = () => {
+      this.currentImageElement = fallbackImg;
+      this.history.clear();
+      this._updateHistoryButtons();
+      this.engine.loadImage(fallbackImg, 1000);
       this._drawOriginalOverlay();
+      if (this.photoCredit) {
+        this.photoCredit.textContent = `${meta.title} (Offline Procedural Studio Scene)`;
+      }
       this.scheduleRender();
+      if (notify) {
+        this.showToast(`Loaded offline scene "${meta.title}"`);
+      }
     };
-    img.src = canvas.toDataURL("image/png");
+    fallbackImg.src = canvas.toDataURL("image/png");
   }
 
-  /**
-   * Draws a rich, detailed beach couple with neon yellow-green surfboard & puppy
-   * matching the composition and palette of the user's uploaded reference image.
-   */
+  _drawPortraitSample(ctx, w, h) {
+    const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+    bgGrad.addColorStop(0, "#8da48e");
+    bgGrad.addColorStop(1, "#5c7460");
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.fillStyle = "#c85a32";
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.82, 220, 190, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#e2a985";
+    ctx.fillRect(w * 0.45, h * 0.48, 86, 130);
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.4, 115, 145, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#4a2518";
+    ctx.beginPath();
+    ctx.arc(w * 0.5, h * 0.36, 135, Math.PI * 0.8, Math.PI * 2.2);
+    ctx.fill();
+
+    ctx.fillStyle = "#e6cfa8";
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.25, 210, 52, -0.06, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#3a251e";
+    ctx.beginPath();
+    ctx.arc(w * 0.45, h * 0.39, 9, 0, Math.PI * 2);
+    ctx.arc(w * 0.55, h * 0.39, 9, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#c95b54";
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.47, 24, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  _drawPetSample(ctx, w, h) {
+    ctx.fillStyle = "#7a9a76";
+    ctx.fillRect(0, 0, w, h);
+
+    const coatGrad = ctx.createRadialGradient(
+      w * 0.5,
+      h * 0.52,
+      40,
+      w * 0.5,
+      h * 0.55,
+      310
+    );
+    coatGrad.addColorStop(0, "#f2cb82");
+    coatGrad.addColorStop(0.6, "#d99f4c");
+    coatGrad.addColorStop(1, "#aa7027");
+    ctx.fillStyle = coatGrad;
+
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.75, 195, 220, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.42, 145, 155, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#9e6320";
+    ctx.beginPath();
+    ctx.ellipse(w * 0.33, h * 0.43, 45, 110, 0.25, 0, Math.PI * 2);
+    ctx.ellipse(w * 0.67, h * 0.43, 45, 110, -0.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#231c18";
+    ctx.beginPath();
+    ctx.arc(w * 0.43, h * 0.39, 13, 0, Math.PI * 2);
+    ctx.arc(w * 0.57, h * 0.39, 13, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.47, 26, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#e5737d";
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.54, 22, 32, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   _drawSurfersSample(ctx, w, h) {
-    // 1. Sky & Ocean Beach Background (which the Smart Cutout will dissolve into watercolor paper!)
     const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.62);
     skyGrad.addColorStop(0, "#bcd4e6");
     skyGrad.addColorStop(1, "#e5eef4");
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, w, h * 0.62);
 
-    // Ocean horizon
     const seaGrad = ctx.createLinearGradient(0, h * 0.58, 0, h * 0.72);
     seaGrad.addColorStop(0, "#5c8d9c");
-    seaGrad.addColorStop(0.6, "#8eb4be");
     seaGrad.addColorStop(1, "#dfecee");
     ctx.fillStyle = seaGrad;
     ctx.fillRect(0, h * 0.58, w, h * 0.14);
 
-    // Sandy beach
-    const sandGrad = ctx.createLinearGradient(0, h * 0.7, 0, h);
-    sandGrad.addColorStop(0, "#d8c3a5");
-    sandGrad.addColorStop(1, "#c2a882");
-    ctx.fillStyle = sandGrad;
+    ctx.fillStyle = "#d8c3a5";
     ctx.fillRect(0, h * 0.7, w, h * 0.3);
 
-    // 2. Neon Lime-Yellow Surfboard on the left (like reference 502480F5)
     ctx.save();
     ctx.translate(w * 0.35, h * 0.49);
     ctx.rotate(0.03);
-    const boardGrad = ctx.createLinearGradient(-75, -280, 75, 290);
-    boardGrad.addColorStop(0, "#f9faf6");
-    boardGrad.addColorStop(0.24, "#eef588");
-    boardGrad.addColorStop(0.4, "#c8e61e");
-    boardGrad.addColorStop(0.85, "#a6cf0e");
-    boardGrad.addColorStop(1, "#d9ec2b");
-    ctx.fillStyle = boardGrad;
+    ctx.fillStyle = "#c8e61e";
     ctx.beginPath();
     ctx.moveTo(0, -310);
     ctx.bezierCurveTo(88, -210, 92, 120, 52, 310);
@@ -888,230 +1533,50 @@ class SplashCanvasApp {
     ctx.bezierCurveTo(-92, 120, -88, -210, 0, -310);
     ctx.closePath();
     ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "#8aa814";
-    ctx.stroke();
-
-    // Surfboard graphic stripes & tail pad
-    ctx.fillStyle = "#262922";
-    ctx.beginPath();
-    ctx.moveTo(-58, 170);
-    ctx.lineTo(15, 160);
-    ctx.lineTo(35, 305);
-    ctx.lineTo(-48, 308);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = "#333";
-    ctx.font = "bold 26px sans-serif";
-    ctx.fillText("58", -54, -95);
     ctx.restore();
 
-    // 3. Male Surfer (White tee, open light-blue chambray shirt, denim shorts, sunglasses)
-    // Legs
-    ctx.fillStyle = "#c98b63";
-    ctx.fillRect(w * 0.44, h * 0.56, 36, 225);
-    ctx.fillRect(w * 0.51, h * 0.56, 35, 225);
-
-    // Denim shorts
-    const shortGrad = ctx.createLinearGradient(w * 0.42, h * 0.47, w * 0.57, h * 0.62);
-    shortGrad.addColorStop(0, "#2b547e");
-    shortGrad.addColorStop(0.5, "#5c8ab3");
-    shortGrad.addColorStop(1, "#1e3c58");
-    ctx.fillStyle = shortGrad;
+    ctx.fillStyle = "#2b547e";
     ctx.fillRect(w * 0.43, h * 0.47, 125, 135);
-
-    // White T-shirt
     ctx.fillStyle = "#f4f6f9";
     ctx.fillRect(w * 0.43, h * 0.28, 118, 195);
-
-    // Open light-blue shirt panels
-    ctx.fillStyle = "#b8cce0";
-    ctx.beginPath();
-    ctx.moveTo(w * 0.42, h * 0.28);
-    ctx.lineTo(w * 0.45, h * 0.28);
-    ctx.lineTo(w * 0.45, h * 0.49);
-    ctx.lineTo(w * 0.41, h * 0.48);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(w * 0.54, h * 0.28);
-    ctx.lineTo(w * 0.58, h * 0.29);
-    ctx.lineTo(w * 0.59, h * 0.51);
-    ctx.lineTo(w * 0.53, h * 0.50);
-    ctx.closePath();
-    ctx.fill();
-
-    // Head & Neck
-    ctx.fillStyle = "#d89b72";
-    ctx.fillRect(w * 0.47, h * 0.24, 34, 48);
-    ctx.beginPath();
-    ctx.ellipse(w * 0.49, h * 0.21, 34, 42, -0.08, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Hair
-    ctx.fillStyle = "#2b231d";
-    ctx.beginPath();
-    ctx.arc(w * 0.485, h * 0.19, 35, Math.PI * 0.85, Math.PI * 2.05);
-    ctx.fill();
-
-    // Blue Mirrored Sunglasses
-    ctx.fillStyle = "#1d63b8";
-    ctx.beginPath();
-    ctx.roundRect(w * 0.48, h * 0.195, 22, 14, 4);
-    ctx.roundRect(w * 0.51, h * 0.197, 18, 14, 4);
-    ctx.fill();
-
-    // 4. Female Subject (Red tank top, high-waisted light-wash jeans, blonde hair, holding puppy)
-    // Light acid-wash jeans
-    const jeanGrad = ctx.createLinearGradient(w * 0.56, h * 0.47, w * 0.70, h * 0.78);
-    jeanGrad.addColorStop(0, "#d7e2ec");
-    jeanGrad.addColorStop(0.5, "#e6edf2");
-    jeanGrad.addColorStop(1, "#c5d3df");
-    ctx.fillStyle = jeanGrad;
-    ctx.beginPath();
-    ctx.roundRect(w * 0.57, h * 0.47, 54, 295, 16);
-    ctx.roundRect(w * 0.63, h * 0.47, 54, 295, 16);
-    ctx.fill();
-
-    // Red Tank Top
     ctx.fillStyle = "#d91b2e";
     ctx.beginPath();
     ctx.roundRect(w * 0.57, h * 0.34, 105, 135, 12);
     ctx.fill();
-
-    // Head & Blonde Waves
-    ctx.fillStyle = "#e0a680";
-    ctx.beginPath();
-    ctx.ellipse(w * 0.61, h * 0.27, 30, 36, 0.08, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#e5c287";
-    ctx.beginPath();
-    ctx.moveTo(w * 0.58, h * 0.24);
-    ctx.bezierCurveTo(w * 0.52, h * 0.28, w * 0.54, h * 0.41, w * 0.61, h * 0.42);
-    ctx.bezierCurveTo(w * 0.64, h * 0.36, w * 0.63, h * 0.25, w * 0.58, h * 0.24);
-    ctx.fill();
-
-    // Sunglasses
-    ctx.fillStyle = "#1676d2";
-    ctx.beginPath();
-    ctx.roundRect(w * 0.605, h * 0.255, 18, 13, 4);
-    ctx.roundRect(w * 0.63, h * 0.258, 16, 13, 4);
-    ctx.fill();
-
-    // 5. Fluffy Cream Shih-Tzu Puppy in Arms
-    ctx.fillStyle = "#e6d6c3";
-    ctx.beginPath();
-    ctx.ellipse(w * 0.69, h * 0.39, 38, 28, -0.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(w * 0.71, h * 0.35, 24, 0, Math.PI * 2);
-    ctx.fill();
-    // Puppy dark nose & eyes
-    ctx.fillStyle = "#2c221e";
-    ctx.beginPath();
-    ctx.arc(w * 0.725, h * 0.345, 4, 0, Math.PI * 2);
-    ctx.arc(w * 0.708, h * 0.335, 3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  _drawPortraitSample(ctx, w, h) {
-    // Soft green bokeh background
-    ctx.fillStyle = "#a3b899";
-    ctx.fillRect(0, 0, w, h);
-
-    // Shoulders & terracotta dress
-    ctx.fillStyle = "#c85a32";
-    ctx.beginPath();
-    ctx.ellipse(w * 0.5, h * 0.82, 220, 190, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Neck & Face
-    ctx.fillStyle = "#e2a985";
-    ctx.fillRect(w * 0.45, h * 0.48, 86, 130);
-    ctx.beginPath();
-    ctx.ellipse(w * 0.5, h * 0.4, 115, 145, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Flowing auburn hair
-    ctx.fillStyle = "#5c2c1d";
-    ctx.beginPath();
-    ctx.arc(w * 0.5, h * 0.36, 135, Math.PI * 0.8, Math.PI * 2.2);
-    ctx.fill();
-
-    // Sun hat
-    ctx.fillStyle = "#e6cfa7";
-    ctx.beginPath();
-    ctx.ellipse(w * 0.5, h * 0.24, 240, 55, -0.06, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  _drawPetSample(ctx, w, h) {
-    ctx.fillStyle = "#9ec1cf";
-    ctx.fillRect(0, 0, w, h);
-
-    // Golden Retriever chest & head
-    ctx.fillStyle = "#d99b4e";
-    ctx.beginPath();
-    ctx.ellipse(w * 0.5, h * 0.72, 190, 210, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#e5ad63";
-    ctx.beginPath();
-    ctx.ellipse(w * 0.5, h * 0.42, 145, 155, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Floppy ears
-    ctx.fillStyle = "#b87a33";
-    ctx.beginPath();
-    ctx.ellipse(w * 0.31, h * 0.44, 48, 110, 0.25, 0, Math.PI * 2);
-    ctx.ellipse(w * 0.69, h * 0.44, 48, 110, -0.25, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Eyes, nose & pink tongue
-    ctx.fillStyle = "#231f20";
-    ctx.beginPath();
-    ctx.arc(w * 0.43, h * 0.38, 14, 0, Math.PI * 2);
-    ctx.arc(w * 0.57, h * 0.38, 14, 0, Math.PI * 2);
-    ctx.ellipse(w * 0.5, h * 0.47, 26, 20, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#e87a90";
-    ctx.beginPath();
-    ctx.ellipse(w * 0.5, h * 0.55, 22, 34, 0, 0, Math.PI * 2);
-    ctx.fill();
   }
 
   _drawArchitectureSample(ctx, w, h) {
-    ctx.fillStyle = "#cbe1f2";
+    ctx.fillStyle = "#c6def1";
     ctx.fillRect(0, 0, w, h);
 
-    // Warm ochre Mediterranean building facade
-    ctx.fillStyle = "#e8b878";
-    ctx.fillRect(w * 0.2, h * 0.18, w * 0.6, h * 0.68);
+    ctx.fillStyle = "#e8b88a";
+    ctx.fillRect(w * 0.12, h * 0.18, w * 0.35, h * 0.58);
+    ctx.fillStyle = "#d47a55";
+    ctx.fillRect(w * 0.52, h * 0.22, w * 0.36, h * 0.54);
 
-    // Terracotta roof tiles
-    ctx.fillStyle = "#b84a2c";
-    ctx.beginPath();
-    ctx.moveTo(w * 0.16, h * 0.2);
-    ctx.lineTo(w * 0.5, h * 0.09);
-    ctx.lineTo(w * 0.84, h * 0.2);
-    ctx.closePath();
-    ctx.fill();
+    ctx.fillStyle = "#3f6a58";
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 2; col++) {
+        ctx.fillRect(
+          w * (0.18 + col * 0.12),
+          h * (0.25 + row * 0.14),
+          38,
+          62
+        );
+        ctx.fillRect(
+          w * (0.58 + col * 0.13),
+          h * (0.28 + row * 0.14),
+          38,
+          62
+        );
+      }
+    }
 
-    // Turquoise shutters & arched doorway
-    ctx.fillStyle = "#2b7a78";
-    ctx.fillRect(w * 0.28, h * 0.28, 70, 110);
-    ctx.fillRect(w * 0.58, h * 0.28, 70, 110);
-
-    // Cafe awning
-    ctx.fillStyle = "#c93b2b";
-    ctx.fillRect(w * 0.25, h * 0.52, w * 0.5, 55);
+    ctx.fillStyle = "#4d8098";
+    ctx.fillRect(0, h * 0.74, w, h * 0.26);
   }
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  window.app = new SplashCanvasApp();
+  window.splashCanvasApp = new SplashCanvasApp();
 });

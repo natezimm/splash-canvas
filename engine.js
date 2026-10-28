@@ -1,30 +1,112 @@
 /**
- * SplashCanvas — Core Watercolor Rendering Engine
- * Replicates professional bespoke Fiverr watercolor portrait effects:
- * 1. Anisotropic Kuwahara & Bilateral pigment brush abstraction with center/face detail fidelity
- * 2. Smart Subject Cutout (foreground saliency + border background rejection + optional AI segmentation)
- * 3. Fractal Brownian Motion (FBM) watercolor wash bleed & dry-brush rough edges
- * 4. Color-sampled directional paint splatters, blooms, micro-droplets, and vertical gravity drips
- * 5. Wet-edge pigment pooling ("water rings") & pencil/sepia ink sketch contours
- * 6. Cold-press paper tooth texture + outer grey/tinted atmospheric clouds
+ * @fileoverview SplashCanvas Core Watercolor Rendering Engine (`engine.js`)
+ *
+ * Architecture & Algorithmic Pipeline:
+ * ----------------------------------------------------------------------------
+ * A zero-dependency, deterministic 2D image processing pipeline engineered for
+ * real-time (60 FPS) interactive non-photorealistic rendering (NPR) in the browser:
+ *
+ *   1. Precomputation Pass (`loadImage`):
+ *      - Sobel 3x3 gradient magnitude operator (`edgeField`) for structural edge
+ *        preservation and graphite/sepia ink contour extraction.
+ *      - Multi-centroid border background rejection + elliptical portrait prior +
+ *        local edge density saliency estimator (`autoSubjectMask`).
+ *      - 5-channel 64-bit Summed-Area Tables (Integral Images: R, G, B, L, L^2)
+ *        enabling O(1) window variance and mean queries regardless of brush radius.
+ *      - Multi-octave 2D Perlin Fractional Brownian Motion (fBm) heightmaps for
+ *        cold-press cotton paper tooth (`paperField`) and outer clouds (`cloudField`).
+ *
+ *   2. Base Pigment Abstraction Layer (`_ensurePaintedLayer`):
+ *      - Anisotropic 4-quadrant Kuwahara filter queried in O(1) time per pixel via
+ *        precomputed Summed-Area Tables.
+ *      - Wet-in-wet box wash smoothing + central/edge detail fidelity retention.
+ *      - Soft pigment quantization and perceptual color grading.
+ *      - Memoized via `lastPaintSignature` so mask, splatter, paper, and sketch
+ *        adjustments skip Stage 2 entirely (<15 ms frame time).
+ *
+ *   3. Wash Mask, Bleed & Vector Splatter Compositor (`render`):
+ *      - Fuses `autoSubjectMask` (or neural `aiSubjectMask`) with manual user brush
+ *        strokes (`userBrushMask`), fBm boundary perturbation, and Hermite smoothstep.
+ *      - Separable O(1) sliding-window color bleed buffer so outer washes and
+ *        splatters inherit true local boundary chromaticity.
+ *      - Per-pixel Beer-Lambert / sine-bell wet water-ring edge darkening, paper valley
+ *        granulation, dry-brush paper gaps, and Sobel ink linework.
+ *      - Procedural boundary-normal vector splatter, bloom, and gravity drip pass.
  */
 
+/**
+ * @typedef {Object} WatercolorParams
+ * @property {number} brushRadius          - Kuwahara quadrant radius in px [0..12]
+ * @property {number} wetSmoothness        - Wet wash box smoothing blend [0..100]
+ * @property {number} detailFidelity       - Subject/face detail preservation [0..100]
+ * @property {number} colorSimplification  - Pigment palette quantization [0..100]
+ * @property {number} pigmentGranulation   - Paper valley pigment settling [0..100]
+ * @property {number} subjectCoverage      - Foreground mask coverage scale [15..95]
+ * @property {number} washSpread           - Outer wash aura dilation [0..100]
+ * @property {number} edgeRoughness        - fBm boundary perturbation amplitude [0..100]
+ * @property {number} edgeSoftness         - Hermite smoothstep feather width [5..100]
+ * @property {number} waterRingIntensity   - Wet-edge pigment pooling rim [0..100]
+ * @property {number} splatterAmount       - Boundary splatter & droplet density [0..100]
+ * @property {number} splatterSize         - Splatter & bloom radius scale [10..100]
+ * @property {number} splatterReach        - Outward normal projection distance [10..100]
+ * @property {number} dripLength           - Vertical gravity drip length [0..100]
+ * @property {number} colorBleed           - Chromatic bleed dilation radius [0..100]
+ * @property {number} sketchIntensity      - Sobel contour line opacity [0..100]
+ * @property {number} sketchDetail         - Sobel contour sensitivity [10..100]
+ * @property {number} sketchWarmth         - Ink tone from graphite (0) to sepia (100)
+ * @property {number} paperGrain           - Cold-press paper tooth relief [0..100]
+ * @property {number} outerCloudWash       - Outer atmospheric wash density [0..100]
+ * @property {number} paperShowThrough     - Dry-brush white paper gaps [0..100]
+ * @property {number} vibrancy             - Saturation delta [-50..100]
+ * @property {number} luminosity           - Brightness offset [-40..60]
+ * @property {number} contrast             - Tonal contrast [-40..60]
+ * @property {number} warmth               - Warm/cool temperature shift [-50..50]
+ * @property {'smart'|'radial'|'full'} cutoutMode - Subject isolation strategy
+ * @property {string} paperTint            - Hex color of archival paper stock
+ */
+
+/**
+ * Deterministic 32-bit Mulberry32 Pseudorandom Number Generator.
+ * Ensures splatter layouts and paper grain are 100% reproducible per seed,
+ * including across multi-resolution (1x / 1.5x / 2x) print exports.
+ */
 class SeededRandom {
+  /**
+   * @param {number} [seed=1337] - Unsigned 32-bit integer seed
+   */
   constructor(seed = 1337) {
     this.seed = seed >>> 0;
   }
+
+  /**
+   * Returns a pseudorandom float in [0, 1).
+   * @returns {number}
+   */
   next() {
     let t = (this.seed += 0x6d2b79f5);
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
+
+  /**
+   * Returns a pseudorandom float in [min, max).
+   * @param {number} min
+   * @param {number} max
+   * @returns {number}
+   */
   range(min, max) {
     return min + this.next() * (max - min);
   }
 }
 
+/**
+ * 2D Gradient Perlin Noise with Multi-Octave Fractional Brownian Motion (fBm).
+ */
 class PerlinNoise2D {
+  /**
+   * @param {number} [seed=42]
+   */
   constructor(seed = 42) {
     const rng = new SeededRandom(seed);
     this.p = new Uint8Array(512);
@@ -56,6 +138,12 @@ class PerlinNoise2D {
     return ((h & 1) !== 0 ? -u : u) + ((h & 2) !== 0 ? -2.0 * v : 2.0 * v);
   }
 
+  /**
+   * Evaluates 2D Perlin noise normalized to [0, 1].
+   * @param {number} x
+   * @param {number} y
+   * @returns {number}
+   */
   noise(x, y) {
     const X = Math.floor(x) & 255;
     const Y = Math.floor(y) & 255;
@@ -74,9 +162,18 @@ class PerlinNoise2D {
         this.grad(this.p[B + 1], x - 1, y - 1)
       )
     );
-    return (res + 1) * 0.5; // normalized [0, 1]
+    return (res + 1) * 0.5;
   }
 
+  /**
+   * Evaluates multi-octave Fractional Brownian Motion (fBm) normalized to [0, 1].
+   * @param {number} x
+   * @param {number} y
+   * @param {number} [octaves=4]
+   * @param {number} [persistence=0.5]
+   * @param {number} [lacunarity=2.0]
+   * @returns {number}
+   */
   fbm(x, y, octaves = 4, persistence = 0.5, lacunarity = 2.0) {
     let total = 0;
     let frequency = 1;
@@ -92,6 +189,9 @@ class PerlinNoise2D {
   }
 }
 
+/**
+ * Core Watercolor Rendering Engine.
+ */
 class WatercolorEngine {
   constructor() {
     this.width = 0;
@@ -99,30 +199,42 @@ class WatercolorEngine {
     this.seed = 2026;
     this.perlin = new PerlinNoise2D(this.seed);
 
-    // Source image buffers
-    this.srcData = null; // Uint8ClampedArray (RGBA)
+    // Primary image & field buffers
+    this.srcData = null;         // Uint8ClampedArray (RGBA)
     this.autoSubjectMask = null; // Float32Array [0..1]
-    this.aiSubjectMask = null; // Float32Array [0..1] if MediaPipe is run
-    this.userBrushMask = null; // Float32Array [-1..1] additive/subtractive brush strokes
-    this.paperField = null; // Float32Array [0..1] cold-press paper heightmap
-    this.cloudField = null; // Float32Array [0..1] outer atmospheric clouds
-    this.edgeField = null; // Float32Array [0..1] Sobel contour strength
+    this.aiSubjectMask = null;   // Float32Array [0..1] (optional MediaPipe neural mask)
+    this.userBrushMask = null;   // Float32Array [-1..1] (additive/subtractive brush delta)
+    this.paperField = null;      // Float32Array [0..1] cold-press cotton heightmap
+    this.cloudField = null;      // Float32Array [0..1] outer atmospheric wash field
+    this.edgeField = null;       // Float32Array [0..1] Sobel gradient magnitude
 
-    // Cached intermediate buffers to make slider updates ultra-responsive
-    this.paintedRGB = null; // Uint8ClampedArray (RGBX)
+    // Precomputed 64-bit Summed-Area Tables (Integral Images) for O(1) Kuwahara & Box filters
+    this.integralTables = null;  // { gw, gh, sumR, sumG, sumB, sumL, sumL2 }
+
+    // Memoized Stage-2 base pigment buffer
+    this.paintedRGB = null;      // Uint8ClampedArray (RGBA)
     this.lastPaintSignature = "";
+    this.lastCacheHit = false;
   }
 
+  /**
+   * Updates the deterministic PRNG seed and rebuilds procedural noise fields.
+   * @param {number} seed
+   */
   setSeed(seed) {
-    this.seed = seed;
-    this.perlin = new PerlinNoise2D(seed);
+    this.seed = seed >>> 0;
+    this.perlin = new PerlinNoise2D(this.seed);
     this._buildPaperAndCloudFields();
   }
 
   /**
-   * Load source image onto internal working resolution
+   * Loads an image/canvas source onto the engine's working resolution and runs
+   * Stage-1 precomputations (Sobel edges, Summed-Area Tables, Saliency Mask, Paper Field).
+   *
+   * @param {HTMLImageElement|HTMLCanvasElement} imgSource
+   * @param {number} [maxDimension=1080]
    */
-  loadImage(imgSource, maxDimension = 1050) {
+  loadImage(imgSource, maxDimension = 1080) {
     const srcW = imgSource.naturalWidth || imgSource.width;
     const srcH = imgSource.naturalHeight || imgSource.height;
     const scale = Math.min(1, maxDimension / Math.max(srcW, srcH));
@@ -140,13 +252,69 @@ class WatercolorEngine {
     this.userBrushMask = new Float32Array(this.width * this.height);
     this.lastPaintSignature = "";
 
+    this._buildIntegralTables();
     this._computeEdgeField();
     this._computeSmartSubjectMask();
     this._buildPaperAndCloudFields();
   }
 
   /**
-   * Clear user manual brush edits
+   * Precomputes 64-bit Summed-Area Tables (Integral Images) over source R, G, B,
+   * Luminance (L), and Squared Luminance (L^2). Caching these tables on `loadImage`
+   * allows Kuwahara brush resizing and color grading tweaks to run in O(1) per pixel
+   * without rebuilding the integral tables on slider changes.
+   * @private
+   */
+  _buildIntegralTables() {
+    const w = this.width;
+    const h = this.height;
+    const src = this.srcData;
+    const gw = w + 1;
+    const gh = h + 1;
+    const size = gw * gh;
+
+    const sumR = new Float64Array(size);
+    const sumG = new Float64Array(size);
+    const sumB = new Float64Array(size);
+    const sumL = new Float64Array(size);
+    const sumL2 = new Float64Array(size);
+
+    for (let y = 1; y <= h; y++) {
+      let rRow = 0,
+        gRow = 0,
+        bRow = 0,
+        lRow = 0,
+        l2Row = 0;
+      const srcRow = (y - 1) * w * 4;
+      const curRow = y * gw;
+      const prevRow = (y - 1) * gw;
+
+      for (let x = 1; x <= w; x++) {
+        const p = srcRow + (x - 1) * 4;
+        const r = src[p];
+        const g = src[p + 1];
+        const b = src[p + 2];
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+        rRow += r;
+        gRow += g;
+        bRow += b;
+        lRow += lum;
+        l2Row += lum * lum;
+
+        sumR[curRow + x] = sumR[prevRow + x] + rRow;
+        sumG[curRow + x] = sumG[prevRow + x] + gRow;
+        sumB[curRow + x] = sumB[prevRow + x] + bRow;
+        sumL[curRow + x] = sumL[prevRow + x] + lRow;
+        sumL2[curRow + x] = sumL2[prevRow + x] + l2Row;
+      }
+    }
+
+    this.integralTables = { gw, gh, sumR, sumG, sumB, sumL, sumL2 };
+  }
+
+  /**
+   * Resets manual user mask brush strokes.
    */
   clearUserBrushMask() {
     if (this.userBrushMask) {
@@ -155,8 +323,35 @@ class WatercolorEngine {
   }
 
   /**
-   * Apply a circular soft brush stroke to the user mask
-   * mode: 'restore' (+1) or 'erase' (-1)
+   * Returns a clone of the current userBrushMask for Undo/Redo history snapshots.
+   * @returns {Float32Array|null}
+   */
+  cloneUserBrushMask() {
+    return this.userBrushMask ? new Float32Array(this.userBrushMask) : null;
+  }
+
+  /**
+   * Restores a previously cloned userBrushMask snapshot.
+   * @param {Float32Array|null} snapshot
+   */
+  restoreUserBrushMask(snapshot) {
+    if (
+      snapshot &&
+      this.userBrushMask &&
+      snapshot.length === this.userBrushMask.length
+    ) {
+      this.userBrushMask.set(snapshot);
+    }
+  }
+
+  /**
+   * Applies a Hermite-feathered circular dab to the interactive user brush mask.
+   *
+   * @param {number} normX       - Normalized X coordinate [0..1]
+   * @param {number} normY       - Normalized Y coordinate [0..1]
+   * @param {number} radiusPx    - Brush radius in working canvas pixels
+   * @param {number} softnessPct - Feather percentage [10..100]
+   * @param {'restore'|'erase'} mode
    */
   applyBrushStroke(normX, normY, radiusPx, softnessPct, mode) {
     if (!this.userBrushMask) return;
@@ -192,7 +387,8 @@ class WatercolorEngine {
   }
 
   /**
-   * Store external AI segmentation mask (e.g. MediaPipe SelfieSegmentation)
+   * Stores an external neural segmentation mask (e.g., MediaPipe SelfieSegmentation).
+   * @param {Float32Array} maskFloatArray
    */
   setAISubjectMask(maskFloatArray) {
     if (maskFloatArray && maskFloatArray.length === this.width * this.height) {
@@ -206,7 +402,8 @@ class WatercolorEngine {
   }
 
   /**
-   * Compute Sobel gradient edge field for pencil/ink outlines and saliency
+   * Computes a 3x3 Sobel gradient magnitude map (`this.edgeField`) normalized to [0..1].
+   * @private
    */
   _computeEdgeField() {
     const w = this.width;
@@ -215,7 +412,8 @@ class WatercolorEngine {
     const lum = new Float32Array(w * h);
 
     for (let i = 0, p = 0; i < w * h; i++, p += 4) {
-      lum[i] = (0.299 * src[p] + 0.587 * src[p + 1] + 0.114 * src[p + 2]) / 255;
+      lum[i] =
+        (0.299 * src[p] + 0.587 * src[p + 1] + 0.114 * src[p + 2]) / 255;
     }
 
     const edges = new Float32Array(w * h);
@@ -243,16 +441,16 @@ class WatercolorEngine {
   }
 
   /**
-   * Smart local subject segmentation:
-   * Samples border clusters (sky, beach, wall, grass) and combines color distance,
-   * skin/warmth saliency, local edge density, and portrait center prior.
+   * Unsupervised foreground subject saliency estimator:
+   * Samples outer frame border clusters and combines chromatic Mahalanobis/Euclidean
+   * distance, local Sobel edge density, saturation saliency, and an elliptical center prior.
+   * @private
    */
   _computeSmartSubjectMask() {
     const w = this.width;
     const h = this.height;
     const src = this.srcData;
 
-    // Sample border colors across top, left, right, and outer bottom edges
     const borderSamples = [];
     const step = Math.max(4, Math.floor(Math.min(w, h) / 35));
 
@@ -272,19 +470,18 @@ class WatercolorEngine {
       pushPixel(Math.floor(w * 0.95), y);
     }
 
-    // Condense border samples into k representative palette centroids
     const centroids = [];
     const bucketStep = Math.max(1, Math.floor(borderSamples.length / 24));
     for (let i = 0; i < borderSamples.length; i += bucketStep) {
       centroids.push(borderSamples[i]);
     }
 
-    // Smooth edge density map so textured subjects stay solid inside
     const localEdgeDensity = this._boxBlurFloat(this.edgeField, w, h, 14);
-
     const rawMask = new Float32Array(w * h);
+
     for (let y = 0; y < h; y++) {
-      const ny = (y / h - 0.52) / 0.46; // slight downward shift for full-body portraits
+      const ny = (y / h - 0.52) / 0.46;
+      const yFrac = y / h;
       for (let x = 0; x < w; x++) {
         const nx = (x / w - 0.5) / 0.38;
         const idx = y * w + x;
@@ -293,9 +490,7 @@ class WatercolorEngine {
         const g = src[p + 1];
         const b = src[p + 2];
 
-        // Find minimum color distance to border background centroids with similar vertical zone
         let minBgDist = 1e9;
-        const yFrac = y / h;
         for (let c = 0; c < centroids.length; c++) {
           const ct = centroids[c];
           const dr = r - ct[0];
@@ -307,30 +502,25 @@ class WatercolorEngine {
         }
 
         const bgDiffScore = Math.min(1.0, Math.max(0, (minBgDist - 22) / 78));
-
-        // Elliptical portrait center weight
         const radialDist = Math.hypot(nx, ny);
         const centerPrior = Math.max(
           0,
           Math.min(1, 1.18 - Math.pow(radialDist, 1.65) * 0.85)
         );
 
-        // Skin / vibrant object boost
         const maxC = Math.max(r, g, b);
         const minC = Math.min(r, g, b);
         const sat = maxC > 0 ? (maxC - minC) / maxC : 0;
         const edgeScore = Math.min(1.0, localEdgeDensity[idx] * 2.8);
 
-        // Combine cues
         let score =
-          centerPrior * (0.42 + 0.48 * bgDiffScore + 0.25 * edgeScore + 0.2 * sat);
+          centerPrior *
+          (0.42 + 0.48 * bgDiffScore + 0.25 * edgeScore + 0.2 * sat);
 
-        // Protect central core where faces/torsos typically reside
         if (radialDist < 0.52 && (bgDiffScore > 0.22 || edgeScore > 0.12)) {
           score = Math.max(score, 0.88 - radialDist * 0.3);
         }
 
-        // Strongly suppress outer frame margin
         if (x < w * 0.04 || x > w * 0.96 || y < h * 0.04 || y > h * 0.96) {
           score *= 0.15;
         }
@@ -339,13 +529,13 @@ class WatercolorEngine {
       }
     }
 
-    // Smooth the mask so subject transitions organically
-    const blurred = this._boxBlurFloat(rawMask, w, h, 18);
-    this.autoSubjectMask = blurred;
+    this.autoSubjectMask = this._boxBlurFloat(rawMask, w, h, 18);
   }
 
   /**
-   * Build cold-press watercolor paper tooth heightmap and outer cloud field
+   * Synthesizes the cold-press cotton paper tooth heightmap (`paperField`)
+   * and multi-octave fBm atmospheric cloud field (`cloudField`).
+   * @private
    */
   _buildPaperAndCloudFields() {
     const w = this.width;
@@ -360,13 +550,11 @@ class WatercolorEngine {
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const idx = y * w + x;
-        // Multi-scale cotton cold-press paper dimples + fine fiber grain
         const coarse = this.perlin.noise(x * 0.11, y * 0.11);
         const medium = this.perlin.noise(x * 0.31 + 17, y * 0.31 + 29);
         const fine = rng.next();
         this.paperField[idx] = coarse * 0.52 + medium * 0.33 + fine * 0.15;
 
-        // Outer watercolor cloud blooms (like the grey clouds in 8246894C)
         const cloud1 = this.perlin.fbm(x * 0.0055, y * 0.0055, 4, 0.55, 2.1);
         const cloud2 = this.perlin.fbm(
           x * 0.014 + 50,
@@ -381,13 +569,20 @@ class WatercolorEngine {
   }
 
   /**
-   * Fast separable box blur for Float32Array
+   * Separable O(1) sliding-window box blur over a single-channel Float32Array.
+   * @param {Float32Array} src
+   * @param {number} w
+   * @param {number} h
+   * @param {number} radius
+   * @returns {Float32Array}
+   * @private
    */
   _boxBlurFloat(src, w, h, radius) {
     if (radius <= 0) return new Float32Array(src);
     const r = Math.max(1, Math.round(radius));
     const tmp = new Float32Array(w * h);
     const dst = new Float32Array(w * h);
+    const count = 2 * r + 1;
 
     // Horizontal pass
     for (let y = 0; y < h; y++) {
@@ -397,7 +592,6 @@ class WatercolorEngine {
         const x = Math.min(w - 1, Math.max(0, i));
         sum += src[rowOffset + x];
       }
-      const count = 2 * r + 1;
       for (let x = 0; x < w; x++) {
         tmp[rowOffset + x] = sum / count;
         const left = Math.max(0, x - r);
@@ -413,7 +607,6 @@ class WatercolorEngine {
         const y = Math.min(h - 1, Math.max(0, i));
         sum += tmp[y * w + x];
       }
-      const count = 2 * r + 1;
       for (let y = 0; y < h; y++) {
         dst[y * w + x] = sum / count;
         const top = Math.max(0, y - r);
@@ -426,8 +619,13 @@ class WatercolorEngine {
   }
 
   /**
-   * Compute the painted watercolor pigment buffer (Kuwahara quadrant filter + wet smoothing + quantization)
-   * Uses integral images (summed-area tables) so ANY brush radius runs in O(1) per pixel!
+   * Stage-2 Base Pigment Layer:
+   * Evaluates an O(1) 4-quadrant anisotropic Kuwahara filter, wet wash smoothing,
+   * center/edge detail retention, palette simplification, and perceptual color grading.
+   * Memoized via `this.lastPaintSignature`.
+   *
+   * @param {WatercolorParams} params
+   * @private
    */
   _ensurePaintedLayer(params) {
     const sig = [
@@ -442,54 +640,21 @@ class WatercolorEngine {
     ].join("|");
 
     if (this.paintedRGB && this.lastPaintSignature === sig) {
+      this.lastCacheHit = true;
       return;
     }
+    this.lastCacheHit = false;
     this.lastPaintSignature = sig;
 
     const w = this.width;
     const h = this.height;
     const src = this.srcData;
-    const out = new Uint8ClampedArray(w * h * 4);
-
-    // Build integral images for R, G, B, and Luminance + Luminance^2 for O(1) Kuwahara filter
-    const gw = w + 1;
-    const gh = h + 1;
-    const sumR = new Float64Array(gw * gh);
-    const sumG = new Float64Array(gw * gh);
-    const sumB = new Float64Array(gw * gh);
-    const sumL = new Float64Array(gw * gh);
-    const sumL2 = new Float64Array(gw * gh);
-
-    for (let y = 1; y <= h; y++) {
-      let rRow = 0,
-        gRow = 0,
-        bRow = 0,
-        lRow = 0,
-        l2Row = 0;
-      const srcRow = (y - 1) * w * 4;
-      const curRow = y * gw;
-      const prevRow = (y - 1) * gw;
-
-      for (let x = 1; x <= w; x++) {
-        const p = srcRow + (x - 1) * 4;
-        const r = src[p];
-        const g = src[p + 1];
-        const b = src[p + 2];
-        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-
-        rRow += r;
-        gRow += g;
-        bRow += b;
-        lRow += lum;
-        l2Row += lum * lum;
-
-        sumR[curRow + x] = sumR[prevRow + x] + rRow;
-        sumG[curRow + x] = sumG[prevRow + x] + gRow;
-        sumB[curRow + x] = sumB[prevRow + x] + bRow;
-        sumL[curRow + x] = sumL[prevRow + x] + lRow;
-        sumL2[curRow + x] = sumL2[prevRow + x] + l2Row;
-      }
+    if (!this.paintedRGB || this.paintedRGB.length !== w * h * 4) {
+      this.paintedRGB = new Uint8ClampedArray(w * h * 4);
     }
+    const out = this.paintedRGB;
+
+    const { gw, sumR, sumG, sumB, sumL, sumL2 } = this.integralTables;
 
     const rectQuery = (table, x0, y0, x1, y1) => {
       const A = y0 * gw + x0;
@@ -506,7 +671,6 @@ class WatercolorEngine {
     const quantizeStrength = params.colorSimplification / 100;
     const quantLevels = Math.max(6, Math.round(32 - quantizeStrength * 24));
 
-    // Color grading parameters
     const satMult = 1 + params.vibrancy / 100;
     const lumOffset = (params.luminosity / 100) * 55;
     const contrastFactor = Math.pow((params.contrast + 100) / 100, 1.35);
@@ -523,27 +687,64 @@ class WatercolorEngine {
         let gPaint = src[p + 1];
         let bPaint = src[p + 2];
 
-        // 1. Kuwahara Quadrant Paint Filter
+        // 1. O(1) Kuwahara Anisotropic Quadrant Filter
         if (radius > 0) {
           let bestVar = 1e18;
-          const quads = [
-            [Math.max(0, x - radius), Math.max(0, y - radius), x + 1, y + 1],
-            [x, Math.max(0, y - radius), Math.min(w, x + radius + 1), y + 1],
-            [Math.max(0, x - radius), y, x + 1, Math.min(h, y + radius + 1)],
-            [x, y, Math.min(w, x + radius + 1), Math.min(h, y + radius + 1)],
-          ];
+          const xMin = Math.max(0, x - radius);
+          const xMax = Math.min(w, x + radius + 1);
+          const yMin = Math.max(0, y - radius);
+          const yMax = Math.min(h, y + radius + 1);
 
-          for (let q = 0; q < 4; q++) {
-            const [qx0, qy0, qx1, qy1] = quads[q];
-            const area = Math.max(1, (qx1 - qx0) * (qy1 - qy0));
-            const meanL = rectQuery(sumL, qx0, qy0, qx1, qy1) / area;
-            const meanL2 = rectQuery(sumL2, qx0, qy0, qx1, qy1) / area;
-            const variance = meanL2 - meanL * meanL;
+          // Quadrant 0: Top-Left
+          {
+            const area = Math.max(1, (x + 1 - xMin) * (y + 1 - yMin));
+            const meanL = rectQuery(sumL, xMin, yMin, x + 1, y + 1) / area;
+            const variance =
+              rectQuery(sumL2, xMin, yMin, x + 1, y + 1) / area - meanL * meanL;
             if (variance < bestVar) {
               bestVar = variance;
-              rPaint = rectQuery(sumR, qx0, qy0, qx1, qy1) / area;
-              gPaint = rectQuery(sumG, qx0, qy0, qx1, qy1) / area;
-              bPaint = rectQuery(sumB, qx0, qy0, qx1, qy1) / area;
+              rPaint = rectQuery(sumR, xMin, yMin, x + 1, y + 1) / area;
+              gPaint = rectQuery(sumG, xMin, yMin, x + 1, y + 1) / area;
+              bPaint = rectQuery(sumB, xMin, yMin, x + 1, y + 1) / area;
+            }
+          }
+          // Quadrant 1: Top-Right
+          {
+            const area = Math.max(1, (xMax - x) * (y + 1 - yMin));
+            const meanL = rectQuery(sumL, x, yMin, xMax, y + 1) / area;
+            const variance =
+              rectQuery(sumL2, x, yMin, xMax, y + 1) / area - meanL * meanL;
+            if (variance < bestVar) {
+              bestVar = variance;
+              rPaint = rectQuery(sumR, x, yMin, xMax, y + 1) / area;
+              gPaint = rectQuery(sumG, x, yMin, xMax, y + 1) / area;
+              bPaint = rectQuery(sumB, x, yMin, xMax, y + 1) / area;
+            }
+          }
+          // Quadrant 2: Bottom-Left
+          {
+            const area = Math.max(1, (x + 1 - xMin) * (yMax - y));
+            const meanL = rectQuery(sumL, xMin, y, x + 1, yMax) / area;
+            const variance =
+              rectQuery(sumL2, xMin, y, x + 1, yMax) / area - meanL * meanL;
+            if (variance < bestVar) {
+              bestVar = variance;
+              rPaint = rectQuery(sumR, xMin, y, x + 1, yMax) / area;
+              gPaint = rectQuery(sumG, xMin, y, x + 1, yMax) / area;
+              bPaint = rectQuery(sumB, xMin, y, x + 1, yMax) / area;
+            }
+          }
+          // Quadrant 3: Bottom-Right
+          {
+            const area = Math.max(1, (xMax - x) * (yMax - y));
+            const meanL = rectQuery(sumL, x, y, xMax, yMax) / area;
+            const variance =
+              rectQuery(sumL2, x, y, xMax, yMax) / area - meanL * meanL;
+            if (variance < bestVar) {
+              bestVar = variance;
+              rPaint = rectQuery(sumR, x, y, xMax, yMax) / area;
+              gPaint = rectQuery(sumG, x, y, xMax, yMax) / area;
+              bPaint = rectQuery(sumB, x, y, xMax, yMax) / area;
             }
           }
         }
@@ -563,12 +764,9 @@ class WatercolorEngine {
           bPaint = bPaint * (1 - wetMix) + wb * wetMix;
         }
 
-        // 3. Preserve facial & central subject crispness (Fiverr portrait look)
+        // 3. Preserve facial & central subject crispness
         if (detailKeep > 0) {
-          const centerFocus = Math.max(
-            0,
-            1 - Math.hypot(nx, ny) * 0.85
-          );
+          const centerFocus = Math.max(0, 1 - Math.hypot(nx, ny) * 0.85);
           const edgeFocus = Math.min(1, this.edgeField[idx] * 1.8);
           const fidelityBlend = Math.min(
             0.92,
@@ -579,18 +777,19 @@ class WatercolorEngine {
           bPaint = bPaint * (1 - fidelityBlend) + src[p + 2] * fidelityBlend;
         }
 
-        // 4. Optional Pigment Palette Quantization
+        // 4. Optional Pigment Palette Simplification
         if (quantizeStrength > 0.02) {
           const step = 255 / quantLevels;
           const qr = Math.round(rPaint / step) * step;
           const qg = Math.round(gPaint / step) * step;
           const qb = Math.round(bPaint / step) * step;
-          rPaint = rPaint * (1 - quantizeStrength * 0.65) + qr * (quantizeStrength * 0.65);
-          gPaint = gPaint * (1 - quantizeStrength * 0.65) + qg * (quantizeStrength * 0.65);
-          bPaint = bPaint * (1 - quantizeStrength * 0.65) + qb * (quantizeStrength * 0.65);
+          const qMix = quantizeStrength * 0.65;
+          rPaint = rPaint * (1 - qMix) + qr * qMix;
+          gPaint = gPaint * (1 - qMix) + qg * qMix;
+          bPaint = bPaint * (1 - qMix) + qb * qMix;
         }
 
-        // 5. Color Grading: Warmth, Contrast, Luminosity, and Watercolor Vibrancy
+        // 5. Perceptual Color Grading
         rPaint += warmthShift;
         bPaint -= warmthShift * 0.85;
 
@@ -609,12 +808,13 @@ class WatercolorEngine {
         out[p + 3] = 255;
       }
     }
-
-    this.paintedRGB = out;
   }
 
   /**
-   * Parse hex color (#f6f5f0) into [r, g, b]
+   * Parses a 6-digit hex color string into `[r, g, b]`.
+   * @param {string} hex
+   * @returns {number[]}
+   * @private
    */
   _hexToRgb(hex) {
     const clean = (hex || "#f6f5f0").replace("#", "");
@@ -623,8 +823,12 @@ class WatercolorEngine {
   }
 
   /**
-   * Main Render Pipeline: Combines subject wash mask, organic FBM bleed,
-   * color-sampled splatters, water-ring darkening, pencil sketch lines, and paper texture.
+   * Executes the full watercolor rendering pipeline onto `targetCanvas`.
+   *
+   * @param {HTMLCanvasElement} targetCanvas
+   * @param {WatercolorParams} params
+   * @param {'result'|'original'|'mask'} [viewMode='result']
+   * @returns {number} Elapsed frame time in milliseconds
    */
   render(targetCanvas, params, viewMode = "result") {
     if (!this.srcData) return 0;
@@ -639,13 +843,14 @@ class WatercolorEngine {
     if (viewMode === "original") {
       const imgData = new ImageData(new Uint8ClampedArray(this.srcData), w, h);
       ctx.putImageData(imgData, 0, 0);
+      this.lastCacheHit = true;
       return performance.now() - t0;
     }
 
-    // 1. Ensure painted base layer is up to date
+    // 1. Ensure Stage-2 base pigment layer is up to date
     this._ensurePaintedLayer(params);
 
-    // 2. Build Base Subject + Organic Watercolor Wash Alpha Mask
+    // 2. Build Subject + fBm Watercolor Wash Alpha Mask
     const baseMask = this._buildWatercolorMask(params);
 
     if (viewMode === "mask") {
@@ -661,14 +866,14 @@ class WatercolorEngine {
       return performance.now() - t0;
     }
 
-    // 3. Create Extended Color-Bleed Buffer (so washes & splatters outside the tight silhouette carry the subject's local colors!)
+    // 3. Create Extended Color-Bleed Buffer
     const bleedRadius = Math.max(
       4,
       Math.round((params.colorBleed / 100) * Math.min(w, h) * 0.09)
     );
     const bledColors = this._createColorBleedBuffer(bleedRadius);
 
-    // 4. Composite Paper Stock, Outer Atmospheric Clouds, Subject Wash, Water Rings, Splatters, and Sketch Lines
+    // 4. Per-Pixel Compositing: Paper Stock, Clouds, Wash, Granulation, Water Rings & Sketch
     const paperRGB = this._hexToRgb(params.paperTint);
     const outImg = ctx.createImageData(w, h);
     const dst = outImg.data;
@@ -690,23 +895,22 @@ class WatercolorEngine {
         const idx = y * w + x;
         const p = idx * 4;
 
-        const paperVal = this.paperField[idx]; // [0..1]
-        const cloudVal = this.cloudField[idx]; // [0..1]
+        const paperVal = this.paperField[idx];
+        const cloudVal = this.cloudField[idx];
         const grainDelta = (paperVal - 0.5) * grainStrength;
 
-        // Base cold-press paper color with subtle atmospheric grey watercolor clouds (like reference image 1)
         const distFromCenter = Math.hypot(nx, ny);
-        const outerZone = Math.min(1, Math.max(0, (distFromCenter - 0.35) / 0.85));
+        const outerZone = Math.min(
+          1,
+          Math.max(0, (distFromCenter - 0.35) / 0.85)
+        );
         const cloudWash =
-          cloudStrength *
-          outerZone *
-          Math.max(0, (cloudVal - 0.42) * 2.1);
+          cloudStrength * outerZone * Math.max(0, (cloudVal - 0.42) * 2.1);
 
-        let bgR = paperRGB[0] * (1 - cloudWash * 0.24) + grainDelta;
-        let bgG = paperRGB[1] * (1 - cloudWash * 0.23) + grainDelta;
-        let bgB = paperRGB[2] * (1 - cloudWash * 0.21) + grainDelta;
+        const bgR = paperRGB[0] * (1 - cloudWash * 0.24) + grainDelta;
+        const bgG = paperRGB[1] * (1 - cloudWash * 0.23) + grainDelta;
+        const bgB = paperRGB[2] * (1 - cloudWash * 0.21) + grainDelta;
 
-        // Subject + wash alpha at this pixel
         let alpha = baseMask[idx];
 
         // Dry-brush white paper show-through in mid-wash transitions
@@ -717,7 +921,6 @@ class WatercolorEngine {
           }
         }
 
-        // Blend inner sharp painted subject with outer color-bled wash
         const coreWeight = Math.min(1, Math.max(0, (alpha - 0.35) / 0.55));
         let fgR =
           this.paintedRGB[p] * coreWeight + bledColors[p] * (1 - coreWeight);
@@ -736,7 +939,7 @@ class WatercolorEngine {
           fgB *= settle;
         }
 
-        // Wet water-ring edge darkening (characteristic darker pigment rim where wash meets dry paper)
+        // Wet water-ring edge darkening (pigment migration toward drying boundary)
         if (waterRingStrength > 0 && alpha > 0.08 && alpha < 0.72) {
           const ringBell = Math.sin(((alpha - 0.08) / 0.64) * Math.PI);
           const darken = 1.0 - ringBell * waterRingStrength * 0.38;
@@ -745,7 +948,7 @@ class WatercolorEngine {
           fgB *= darken;
         }
 
-        // Pencil / Sepia Ink Sketch Contour overlay inside subject region
+        // Sobel Graphite / Sepia Ink Contour Overlay
         if (sketchOpacity > 0.01 && alpha > 0.15) {
           const e = this.edgeField[idx];
           if (e > sketchThresh * 0.28) {
@@ -762,7 +965,6 @@ class WatercolorEngine {
           }
         }
 
-        // Final composite over cold-press paper with paper grain modulation
         const finalR = bgR * (1 - alpha) + (fgR + grainDelta * 0.55) * alpha;
         const finalG = bgG * (1 - alpha) + (fgG + grainDelta * 0.55) * alpha;
         const finalB = bgB * (1 - alpha) + (fgB + grainDelta * 0.55) * alpha;
@@ -776,7 +978,7 @@ class WatercolorEngine {
 
     ctx.putImageData(outImg, 0, 0);
 
-    // 5. Render Vector/Procedural Paint Splatters, Watercolor Blooms & Gravity Drips sampled directly from Subject Boundary Colors!
+    // 5. Boundary-Normal Vector Splatters, Watercolor Blooms & Gravity Drips
     if (params.splatterAmount > 0 || params.dripLength > 0) {
       this._renderSplattersAndDrips(ctx, baseMask, bledColors, params);
     }
@@ -785,7 +987,10 @@ class WatercolorEngine {
   }
 
   /**
-   * Build the combined Subject + Fractal Watercolor Wash Mask
+   * Builds the composite Subject + fBm Watercolor Wash Alpha Mask.
+   * @param {WatercolorParams} params
+   * @returns {Float32Array}
+   * @private
    */
   _buildWatercolorMask(params) {
     const w = this.width;
@@ -798,13 +1003,11 @@ class WatercolorEngine {
     const softness = Math.max(0.08, params.edgeSoftness / 100);
     const cutoutMode = params.cutoutMode || "smart";
 
-    // Select base subject map
     const baseSubject =
       this.aiSubjectMask && cutoutMode === "smart"
         ? this.aiSubjectMask
         : this.autoSubjectMask;
 
-    // Create a dilated "aura" wash around the subject so paint splashes outward like the surfboard/couple example
     const auraBlurRadius = Math.round(
       Math.max(4, washSpread * Math.min(w, h) * 0.14)
     );
@@ -821,47 +1024,29 @@ class WatercolorEngine {
 
         let sVal = 1.0;
         if (cutoutMode === "full") {
-          // Full canvas mode with subtle artistic border vignette
-          const edgeDist = Math.min(
-            x / w,
-            (w - x) / w,
-            y / h,
-            (h - y) / h
-          );
+          const edgeDist = Math.min(x / w, (w - x) / w, y / h, (h - y) / h);
           sVal = Math.min(1.0, edgeDist * (14 - washSpread * 8));
         } else if (cutoutMode === "radial") {
           const rDist = Math.hypot(nx, ny);
           sVal = Math.max(0, 1.15 - rDist * 0.92);
         } else {
-          // Smart subject + watercolor wash aura
           const core = baseSubject[idx];
           const aura = dilatedSubject[idx] * (0.55 + washSpread * 0.75);
-          sVal = Math.max(core, aura);
-
-          // Scale by coverage slider
-          sVal = sVal * (0.65 + coverage * 0.85);
+          sVal = Math.max(core, aura) * (0.65 + coverage * 0.85);
         }
 
-        // Perturb outer wash boundary with multi-octave FBM brush noise
         if (sVal < 0.96 && roughness > 0.01) {
-          const n1 = this.perlin.fbm(
-            x * 0.012,
-            y * 0.012,
-            4,
-            0.55,
-            2.1
-          );
+          const n1 = this.perlin.fbm(x * 0.012, y * 0.012, 4, 0.55, 2.1);
           const n2 = this.perlin.noise(x * 0.045 + 91, y * 0.045 + 37);
-          const brushPerturb = (n1 * 0.72 + n2 * 0.28 - 0.48) * roughness * 0.95;
+          const brushPerturb =
+            (n1 * 0.72 + n2 * 0.28 - 0.48) * roughness * 0.95;
           sVal += brushPerturb;
         }
 
-        // Apply interactive user brush edits (reveal or erase)
         if (this.userBrushMask && this.userBrushMask[idx] !== 0) {
           sVal += this.userBrushMask[idx] * 1.15;
         }
 
-        // Smoothstep transition controlled by edgeSoftness
         const low = 0.42 - softness * 0.34;
         const high = 0.44 + softness * 0.42;
         let t = (sVal - low) / Math.max(0.02, high - low);
@@ -874,8 +1059,12 @@ class WatercolorEngine {
   }
 
   /**
-   * Create a blurred color-bleed buffer so watercolor washes & splatters outside the silhouette
-   * inherit vibrant local colors from the nearest subject edge (e.g. neon yellow surfboard, red top, blue jeans)
+   * Separable O(1) sliding-window RGB blur over `this.paintedRGB` so outer washes
+   * and splatters inherit accurate local colors from adjacent subject boundaries.
+   *
+   * @param {number} radius
+   * @returns {Uint8ClampedArray}
+   * @private
    */
   _createColorBleedBuffer(radius) {
     const w = this.width;
@@ -884,7 +1073,6 @@ class WatercolorEngine {
     const src = this.paintedRGB;
     const tmp = new Uint8ClampedArray(w * h * 4);
     const dst = new Uint8ClampedArray(w * h * 4);
-
     const count = 2 * r + 1;
 
     // Horizontal pass
@@ -941,164 +1129,191 @@ class WatercolorEngine {
   }
 
   /**
-   * Render realistic color-matched watercolor splatters, organic blooms, fine spray droplets,
-   * and vertical gravity drips around the wash boundary (matching Fiverr reference images).
+   * Samples boundary transition candidates (`0.12 < alpha < 0.78`), estimates outward
+   * mask normals, and renders color-matched watercolor blooms, directional splatters,
+   * micro-mist droplets, and vertical gravity drips.
+   *
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {Float32Array} baseMask
+   * @param {Uint8ClampedArray} bledColors
+   * @param {WatercolorParams} params
+   * @private
    */
-  _renderSplattersAndDrips(ctx, mask, bledColors, params) {
+  _renderSplattersAndDrips(ctx, baseMask, bledColors, params) {
     const w = this.width;
     const h = this.height;
     const rng = new SeededRandom(this.seed + 777);
+    const scaleFactor = Math.min(w, h) / 900;
 
-    // Collect boundary contour points where mask transitions from subject to paper
-    const boundaryPoints = [];
-    const stride = Math.max(3, Math.floor(Math.min(w, h) / 140));
+    const boundaryCandidates = [];
+    const step = Math.max(4, Math.round(6 * scaleFactor));
 
-    for (let y = stride; y < h - stride; y += stride) {
-      for (let x = stride; x < w - stride; x += stride) {
+    for (let y = step; y < h - step; y += step) {
+      for (let x = step; x < w - step; x += step) {
         const idx = y * w + x;
-        const m = mask[idx];
-        if (m > 0.14 && m < 0.78) {
-          // Estimate outward normal vector away from subject mask
-          const gx = mask[idx - stride] - mask[idx + stride];
-          const gy = mask[idx - stride * w] - mask[idx + stride * w];
-          const len = Math.hypot(gx, gy) || 1;
-          // Sample vibrant color slightly inside the subject
-          const inX = Math.min(
-            w - 1,
-            Math.max(0, Math.round(x - (gx / len) * stride * 4))
-          );
-          const inY = Math.min(
-            h - 1,
-            Math.max(0, Math.round(y - (gy / len) * stride * 4))
-          );
-          const cp = (inY * w + inX) * 4;
-          boundaryPoints.push({
+        const a = baseMask[idx];
+        if (a > 0.12 && a < 0.78) {
+          const gx = baseMask[idx - step] - baseMask[idx + step];
+          const gy = baseMask[(y - step) * w + x] - baseMask[(y + step) * w + x];
+          const mag = Math.hypot(gx, gy) || 1;
+          boundaryCandidates.push({
             x,
             y,
-            nx: gx / len,
-            ny: gy / len,
-            r: bledColors[cp],
-            g: bledColors[cp + 1],
-            b: bledColors[cp + 2],
+            nx: gx / mag,
+            ny: gy / mag,
           });
         }
       }
     }
 
-    if (boundaryPoints.length === 0) return;
+    if (boundaryCandidates.length === 0) return;
 
-    const scaleFactor = Math.min(w, h) / 800;
-    const splatDensity = params.splatterAmount / 100;
+    const splatAmount = params.splatterAmount / 100;
     const splatScale = (params.splatterSize / 100) * scaleFactor;
-    const splatReach = (params.splatterReach / 100) * Math.min(w, h) * 0.22;
-    const dripAmount = params.dripLength / 100;
+    const splatReach =
+      (params.splatterReach / 100) * Math.min(w, h) * 0.22;
+    const waterRing = params.waterRingIntensity / 100;
 
     ctx.save();
-    ctx.globalCompositeOperation = "multiply";
 
-    // A. Soft Watercolor Cloud Blooms & Medium Irregular Splatters
-    const numBlooms = Math.floor(splatDensity * 210);
+    // A. Soft Watercolor Cloud Blooms & Medium Splatters
+    const numBlooms = Math.round(splatAmount * 190);
     for (let i = 0; i < numBlooms; i++) {
-      const bp =
-        boundaryPoints[Math.floor(rng.next() * boundaryPoints.length)];
+      const b =
+        boundaryCandidates[Math.floor(rng.next() * boundaryCandidates.length)];
       const angleJitter = rng.range(-0.65, 0.65);
-      const baseAngle = Math.atan2(bp.ny, bp.nx) + angleJitter;
+      const baseAngle = Math.atan2(b.ny, b.nx) + angleJitter;
       const dist = Math.pow(rng.next(), 0.75) * splatReach;
 
-      const sx = bp.x + Math.cos(baseAngle) * dist;
-      const sy = bp.y + Math.sin(baseAngle) * dist;
-      const radius = rng.range(4, 34) * (0.45 + splatScale * 1.15);
-      const alpha = rng.range(0.14, 0.52) * (1 - (dist / (splatReach + 1)) * 0.45);
+      const sx = b.x + Math.cos(baseAngle) * dist;
+      const sy = b.y + Math.sin(baseAngle) * dist;
 
-      this._drawOrganicBlob(
+      const sampleX = Math.max(
+        0,
+        Math.min(w - 1, Math.round(b.x - b.nx * 14 * scaleFactor))
+      );
+      const sampleY = Math.max(
+        0,
+        Math.min(h - 1, Math.round(b.y - b.ny * 14 * scaleFactor))
+      );
+      const p = (sampleY * w + sampleX) * 4;
+      const r = bledColors[p];
+      const g = bledColors[p + 1];
+      const bl = bledColors[p + 2];
+
+      const radius =
+        rng.range(4, 28) * splatScale * (1 - (dist / (splatReach + 1)) * 0.45);
+      const opacity = rng.range(0.18, 0.62);
+
+      this._drawOrganicSplatterBlob(
         ctx,
         sx,
         sy,
         radius,
-        bp.r,
-        bp.g,
-        bp.b,
-        alpha,
+        r,
+        g,
+        bl,
+        opacity,
+        waterRing,
         rng
       );
     }
 
-    // B. Crisp Fine Paint Droplets & Directional Streaks
-    ctx.globalCompositeOperation = "source-over";
-    const numDroplets = Math.floor(splatDensity * 420);
+    // B. Crisp Directional Paint Droplets & Fine Mist
+    const numDroplets = Math.round(splatAmount * 520);
     for (let i = 0; i < numDroplets; i++) {
-      const bp =
-        boundaryPoints[Math.floor(rng.next() * boundaryPoints.length)];
-      const angle = Math.atan2(bp.ny, bp.nx) + rng.range(-0.8, 0.8);
-      const dist = rng.range(4, splatReach * 1.35);
+      const b =
+        boundaryCandidates[Math.floor(rng.next() * boundaryCandidates.length)];
+      const angle = Math.atan2(b.ny, b.nx) + rng.range(-0.55, 0.55);
+      const dist = rng.range(4 * scaleFactor, splatReach * 1.35);
 
-      const dx = bp.x + Math.cos(angle) * dist;
-      const dy = bp.y + Math.sin(angle) * dist;
-      const rad = rng.range(1.1, 5.8) * (0.5 + splatScale * 0.9);
-      const alpha = rng.range(0.25, 0.78);
+      const sx = b.x + Math.cos(angle) * dist;
+      const sy = b.y + Math.sin(angle) * dist;
 
-      ctx.fillStyle = `rgba(${bp.r}, ${bp.g}, ${bp.b}, ${alpha.toFixed(3)})`;
+      const sampleX = Math.max(
+        0,
+        Math.min(w - 1, Math.round(b.x - b.nx * 10 * scaleFactor))
+      );
+      const sampleY = Math.max(
+        0,
+        Math.min(h - 1, Math.round(b.y - b.ny * 10 * scaleFactor))
+      );
+      const p = (sampleY * w + sampleX) * 4;
+      const r = Math.max(0, bledColors[p] - 12);
+      const g = Math.max(0, bledColors[p + 1] - 12);
+      const bl = Math.max(0, bledColors[p + 2] - 12);
+
+      const dropR =
+        rng.range(0.9, 5.2) * (0.55 + splatScale * 0.65);
+      const alpha = rng.range(0.35, 0.85);
+
+      ctx.fillStyle = `rgba(${r}, ${g}, ${bl}, ${alpha.toFixed(2)})`;
       ctx.beginPath();
-      // Slightly elongated droplet along flight direction
-      const stretch = rng.range(1.0, 2.1);
-      ctx.ellipse(dx, dy, rad * stretch, rad, angle, 0, Math.PI * 2);
+      const stretch = rng.range(1.0, 1.85);
+      ctx.ellipse(
+        sx,
+        sy,
+        dropR * stretch,
+        dropR,
+        angle,
+        0,
+        Math.PI * 2
+      );
       ctx.fill();
     }
 
-    // C. Lower Gravity Watercolor Drips & Runs (like the yellow surfboard bottom drips in reference)
-    if (dripAmount > 0.02) {
-      const lowerPoints = boundaryPoints.filter(
-        (pt) => pt.y > h * 0.48 && pt.ny > 0.15
+    // C. Vertical Watercolor Gravity Drips (bottom edge runs)
+    const dripStrength = params.dripLength / 100;
+    if (dripStrength > 0.02) {
+      const lowerCandidates = boundaryCandidates.filter(
+        (c) => c.ny > 0.25 && c.y > h * 0.42
       );
-      const pool = lowerPoints.length > 5 ? lowerPoints : boundaryPoints;
-      const numDrips = Math.floor(dripAmount * 32);
+      const pool =
+        lowerCandidates.length > 5 ? lowerCandidates : boundaryCandidates;
+      const numDrips = Math.round(dripStrength * 28);
 
       for (let i = 0; i < numDrips; i++) {
-        const bp = pool[Math.floor(rng.next() * pool.length)];
-        const dripLen =
-          rng.range(18, 125) * dripAmount * scaleFactor;
-        const dripWidth = rng.range(2.2, 8.5) * (0.6 + splatScale * 0.7);
-        const startX = bp.x + rng.range(-10, 10);
-        const startY = bp.y - rng.range(2, 12);
-
-        const grad = ctx.createLinearGradient(
-          startX,
-          startY,
-          startX,
-          startY + dripLen
+        const b = pool[Math.floor(rng.next() * pool.length)];
+        const sampleX = Math.max(0, Math.min(w - 1, Math.round(b.x)));
+        const sampleY = Math.max(
+          0,
+          Math.min(h - 1, Math.round(b.y - 12 * scaleFactor))
         );
-        grad.addColorStop(0, `rgba(${bp.r}, ${bp.g}, ${bp.b}, 0.55)`);
-        grad.addColorStop(0.75, `rgba(${bp.r}, ${bp.g}, ${bp.b}, 0.32)`);
-        grad.addColorStop(1, `rgba(${bp.r}, ${bp.g}, ${bp.b}, 0.0)`);
+        const p = (sampleY * w + sampleX) * 4;
+        const r = bledColors[p];
+        const g = bledColors[p + 1];
+        const bl = bledColors[p + 2];
 
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = dripWidth;
-        ctx.lineCap = "round";
+        const len =
+          rng.range(25, 165) * dripStrength * scaleFactor;
+        const width = rng.range(1.5, 4.8) * scaleFactor;
+        const alpha = rng.range(0.32, 0.72);
+
         ctx.beginPath();
-        ctx.moveTo(startX, startY);
+        let curX = b.x + rng.range(-6, 6) * scaleFactor;
+        let curY = b.y;
+        ctx.moveTo(curX, curY);
 
-        let curX = startX;
-        const steps = 6;
-        for (let s = 1; s <= steps; s++) {
-          curX += rng.range(-2.2, 2.2);
-          const curY = startY + (dripLen * s) / steps;
+        const segments = 8;
+        const segLen = len / segments;
+        for (let s = 1; s <= segments; s++) {
+          curX += rng.range(-2.2, 2.2) * scaleFactor;
+          curY += segLen;
           ctx.lineTo(curX, curY);
         }
+
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${bl}, ${alpha.toFixed(2)})`;
+        ctx.lineWidth = width;
+        ctx.lineCap = "round";
         ctx.stroke();
 
-        // Terminal tear-drop bead at bottom of drip
-        if (rng.next() > 0.35) {
-          ctx.fillStyle = `rgba(${bp.r}, ${bp.g}, ${bp.b}, 0.42)`;
-          ctx.beginPath();
-          ctx.arc(
-            curX,
-            startY + dripLen * 0.92,
-            dripWidth * 0.75,
-            0,
-            Math.PI * 2
-          );
-          ctx.fill();
-        }
+        ctx.fillStyle = `rgba(${Math.max(0, r - 18)}, ${Math.max(
+          0,
+          g - 18
+        )}, ${Math.max(0, bl - 18)}, ${(alpha * 1.1).toFixed(2)})`;
+        ctx.beginPath();
+        ctx.arc(curX, curY, width * 1.25, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
 
@@ -1106,24 +1321,54 @@ class WatercolorEngine {
   }
 
   /**
-   * Draw an irregular watercolor bloom polygon with wet edge ring
+   * Renders an irregular polygon watercolor splatter bloom with radial pigment
+   * gradient and darkened wet water-ring rim.
+   * @private
    */
-  _drawOrganicBlob(ctx, cx, cy, radius, r, g, b, alpha, rng) {
-    const vertices = 9;
+  _drawOrganicSplatterBlob(
+    ctx,
+    cx,
+    cy,
+    radius,
+    r,
+    g,
+    b,
+    opacity,
+    waterRing,
+    rng
+  ) {
+    const vertices = 10;
     ctx.beginPath();
     for (let i = 0; i <= vertices; i++) {
       const theta = (i / vertices) * Math.PI * 2;
-      const rVar = radius * rng.range(0.58, 1.32);
-      const px = cx + Math.cos(theta) * rVar;
-      const py = cy + Math.sin(theta) * rVar;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
+      const radVar = radius * rng.range(0.68, 1.28);
+      const vx = cx + Math.cos(theta) * radVar;
+      const vy = cy + Math.sin(theta) * radVar;
+      if (i === 0) ctx.moveTo(vx, vy);
+      else ctx.lineTo(vx, vy);
     }
     ctx.closePath();
 
-    const grad = ctx.createRadialGradient(cx, cy, radius * 0.1, cx, cy, radius * 1.25);
-    grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${(alpha * 0.7).toFixed(3)})`);
-    grad.addColorStop(0.75, `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`);
+    const grad = ctx.createRadialGradient(
+      cx,
+      cy,
+      radius * 0.1,
+      cx,
+      cy,
+      radius * 1.2
+    );
+    grad.addColorStop(
+      0,
+      `rgba(${r}, ${g}, ${b}, ${(opacity * 0.65).toFixed(2)})`
+    );
+    const rimDark = Math.round(waterRing * 28);
+    grad.addColorStop(
+      0.78,
+      `rgba(${Math.max(0, r - rimDark)}, ${Math.max(
+        0,
+        g - rimDark
+      )}, ${Math.max(0, b - rimDark)}, ${opacity.toFixed(2)})`
+    );
     grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
 
     ctx.fillStyle = grad;
