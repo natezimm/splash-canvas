@@ -109,4 +109,14 @@ open index.html
 # Option 2: Serve via local static HTTP server (recommended for MediaPipe WASM)
 python3 -m http.server 8080
 # Visit http://localhost:8080
+
+# Option 3: VS Code Live Server
+# Click "Go Live" in the status bar or press Alt+L Alt+O
 ```
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+

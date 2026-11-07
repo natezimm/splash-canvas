@@ -3,7 +3,9 @@ node_modules/
 
 # IDE & Editors
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 *.sublime-project
 *.sublime-workspace
 
