@@ -445,6 +445,23 @@ class SplashCanvasApp {
     this.paramSearchInput = document.getElementById("param-search-input");
     this.shortcutsModal = document.getElementById("shortcuts-modal");
     this.toastContainer = document.getElementById("toast-container");
+    this.workspace = document.getElementById("workspace");
+  }
+
+  /**
+   * Switches the active workspace view panel on mobile and tablet screens.
+   * @param {"left"|"center"|"right"} panelName
+   */
+  setActivePanel(panelName) {
+    if (this.workspace) {
+      this.workspace.dataset.activePanel = panelName;
+    }
+    document.querySelectorAll(".mobile-tab-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.panel === panelName);
+    });
+    if (panelName === "center") {
+      this.scheduleRender();
+    }
   }
 
   _buildPresetCards() {
@@ -876,23 +893,65 @@ class SplashCanvasApp {
       if (!isPainting) this.brushCursor.classList.add("hidden");
     });
 
-    // Split Comparison Slider Dragging
+    // Split Comparison Slider Dragging (with touch pointer capture)
     let isDraggingSplit = false;
-    this.splitSlider.addEventListener("pointerdown", (e) => {
-      isDraggingSplit = true;
-      e.stopPropagation();
-    });
-    window.addEventListener("pointermove", (e) => {
-      if (!isDraggingSplit) return;
+    const updateSplitPosition = (clientX) => {
       const rect = this.outputCanvas.getBoundingClientRect();
+      if (!rect.width) return;
       this.splitPos = Math.max(
         0.02,
-        Math.min(0.98, (e.clientX - rect.left) / rect.width)
+        Math.min(0.98, (clientX - rect.left) / rect.width)
       );
       this._updateSplitClip();
+    };
+
+    this.splitSlider.addEventListener("pointerdown", (e) => {
+      isDraggingSplit = true;
+      try {
+        this.splitSlider.setPointerCapture(e.pointerId);
+      } catch (_) {}
+      updateSplitPosition(e.clientX);
+      e.stopPropagation();
     });
-    window.addEventListener("pointerup", () => {
+    this.splitSlider.addEventListener("pointermove", (e) => {
+      if (!isDraggingSplit) return;
+      updateSplitPosition(e.clientX);
+    });
+    const stopSplitDrag = (e) => {
+      if (!isDraggingSplit) return;
       isDraggingSplit = false;
+      try {
+        this.splitSlider.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+    };
+    this.splitSlider.addEventListener("pointerup", stopSplitDrag);
+    this.splitSlider.addEventListener("pointercancel", stopSplitDrag);
+    window.addEventListener("pointermove", (e) => {
+      if (isDraggingSplit) updateSplitPosition(e.clientX);
+    });
+    window.addEventListener("pointerup", stopSplitDrag);
+
+    // Mobile / Tablet Panel Switcher
+    document.querySelectorAll(".mobile-tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.setActivePanel(btn.dataset.panel);
+      });
+    });
+
+    document.querySelectorAll(".btn-return-canvas").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.setActivePanel("center");
+      });
+    });
+
+    window.addEventListener("resize", () => {
+      if (
+        window.innerWidth > 1024 &&
+        this.workspace &&
+        this.workspace.dataset.activePanel !== "center"
+      ) {
+        this.setActivePanel("center");
+      }
     });
 
     // File Upload & Drag-and-Drop

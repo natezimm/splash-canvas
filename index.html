@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>SplashCanvas — Client-Side Watercolor Rendering Studio</title>
   <link rel="stylesheet" href="styles.css" />
   <!-- Optional MediaPipe Selfie Segmentation for client-side neural subject cutout -->
@@ -36,7 +36,7 @@
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          <span>Open Photo</span>
+          <span class="btn-text">Open Photo</span>
         </label>
         <input type="file" id="file-input" accept="image/*" hidden />
 
@@ -47,9 +47,9 @@
               <circle cx="8.5" cy="8.5" r="1.5"/>
               <polyline points="21 15 16 10 5 21"/>
             </svg>
-            <span>Sample Photos</span>
-            <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="6 9 12 15 18 9"/>
+            <span class="btn-text">Sample Photos</span>
+            <svg class="chevron-icon" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 3.75L5 6.75L8 3.75"/>
             </svg>
           </button>
           <div class="sample-menu" id="sample-menu" role="menu">
@@ -109,7 +109,7 @@
             <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
             <line x1="4" y1="4" x2="9" y2="9"/>
           </svg>
-          <span>Re-Roll Seed</span>
+          <span class="btn-text">Re-Roll Seed</span>
         </button>
 
         <button class="btn btn-ghost" id="reset-all-btn" title="Reset all parameters &amp; mask edits to the active preset defaults">
@@ -117,7 +117,7 @@
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
             <path d="M3 3v5h5"/>
           </svg>
-          <span>Reset</span>
+          <span class="btn-text">Reset</span>
         </button>
 
         <button class="btn btn-icon" id="shortcuts-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
@@ -131,27 +131,40 @@
 
         <!-- Export Controls -->
         <div class="export-group">
-          <select id="export-scale" class="select-compact" aria-label="Export resolution scale" title="Select export resolution multiplier">
-            <option value="1">1x Native</option>
-            <option value="1.5">1.5x Print</option>
-            <option value="2">2x Ultra-HD</option>
-          </select>
+          <div class="select-wrap">
+            <select id="export-scale" class="select-compact" aria-label="Export resolution scale" title="Select export resolution multiplier">
+              <option value="1">1x Native</option>
+              <option value="1.5">1.5x Print</option>
+              <option value="2">2x Ultra-HD</option>
+            </select>
+            <svg class="select-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 3.75L5 6.75L8 3.75"/>
+            </svg>
+          </div>
           <button class="btn btn-primary" id="export-btn">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            <span>Export PNG</span>
+            <span class="btn-text">Export PNG</span>
           </button>
         </div>
       </div>
     </header>
 
-    <!-- Main 3-Column Studio Workspace -->
-    <div class="workspace">
+    <!-- Main Studio Workspace (3-Column on Desktop, Tabbed Switcher on Mobile & Tablet) -->
+    <div class="workspace" id="workspace" data-active-panel="center">
       <!-- Left Sidebar: Presets, Subject Segmentation & Masking Brush -->
-      <aside class="left-panel" aria-label="Presets and Subject Segmentation">
+      <aside class="left-panel" id="left-panel" aria-label="Presets and Subject Segmentation">
+        <div class="mobile-panel-bar">
+          <span class="mobile-panel-bar-title">Presets &amp; Masking</span>
+          <button type="button" class="btn btn-secondary btn-return-canvas" data-to-panel="center">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>View Canvas</span>
+          </button>
+        </div>
+
         <div class="panel-section">
           <div class="section-header">
             <h2>Aquarelle Presets</h2>
@@ -265,19 +278,19 @@
           <div class="view-toggles" role="tablist" aria-label="Canvas view mode">
             <button class="pill-btn active" data-view="result" role="tab" title="Rendered Watercolor Artwork (Shortcut: 1)">
               <span>Artwork</span>
-              <kbd>1</kbd>
+              <kbd class="kbd-hint">1</kbd>
             </button>
             <button class="pill-btn" data-view="split" role="tab" title="Interactive Before/After Split Comparison (Shortcut: 2)">
               <span>Split Compare</span>
-              <kbd>2</kbd>
+              <kbd class="kbd-hint">2</kbd>
             </button>
             <button class="pill-btn" data-view="original" role="tab" title="Original Source Photograph (Shortcut: 3)">
               <span>Original</span>
-              <kbd>3</kbd>
+              <kbd class="kbd-hint">3</kbd>
             </button>
             <button class="pill-btn" data-view="mask" role="tab" title="Alpha Wash &amp; Subject Isolation Mask (Shortcut: 4)">
               <span>Alpha Mask</span>
-              <kbd>4</kbd>
+              <kbd class="kbd-hint">4</kbd>
             </button>
           </div>
 
@@ -357,7 +370,15 @@
       </main>
 
       <!-- Right Sidebar: 24 Real-Time Effect Sliders with Filter & Section Reset -->
-      <aside class="right-panel" aria-label="Watercolor Effect Controls">
+      <aside class="right-panel" id="right-panel" aria-label="Watercolor Effect Controls">
+        <div class="mobile-panel-bar">
+          <span class="mobile-panel-bar-title">Effect Controls (24 Sliders)</span>
+          <button type="button" class="btn btn-secondary btn-return-canvas" data-to-panel="center">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>View Canvas</span>
+          </button>
+        </div>
+
         <div class="sliders-header">
           <div class="sliders-header-top">
             <h2>Effect Parameters</h2>
@@ -648,6 +669,44 @@
         </div>
       </aside>
     </div>
+
+    <!-- Mobile & Tablet Studio Panel Switcher Bar -->
+    <nav class="mobile-tab-bar" id="mobile-tab-bar" aria-label="Mobile panel switcher">
+      <button type="button" class="mobile-tab-btn" data-panel="left" aria-label="Presets and Subject Masking">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+          <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+          <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+          <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2z"/>
+        </svg>
+        <span>Presets</span>
+      </button>
+
+      <button type="button" class="mobile-tab-btn active" data-panel="center" aria-label="Watercolor Artwork Canvas">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <span>Artwork</span>
+      </button>
+
+      <button type="button" class="mobile-tab-btn" data-panel="right" aria-label="24 Real-Time Effect Sliders">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="21" x2="4" y2="14"/>
+          <line x1="4" y1="10" x2="4" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12" y2="3"/>
+          <line x1="20" y1="21" x2="20" y2="16"/>
+          <line x1="20" y1="12" x2="20" y2="3"/>
+          <line x1="1" y1="14" x2="7" y2="14"/>
+          <line x1="9" y1="8" x2="15" y2="8"/>
+          <line x1="17" y1="16" x2="23" y2="16"/>
+        </svg>
+        <span>Sliders (24)</span>
+      </button>
+    </nav>
 
     <!-- Keyboard Shortcuts Modal -->
     <div class="modal-backdrop hidden" id="shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
