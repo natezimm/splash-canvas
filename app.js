@@ -430,6 +430,7 @@ class SplashCanvasApp {
     this.renderTimeLabel = document.getElementById("render-time-label");
     this.statusDot = document.getElementById("status-dot");
     this.seedReadout = document.getElementById("seed-readout");
+    this.mobileSeedReadout = document.getElementById("mobile-seed-readout");
     this.splitSlider = document.getElementById("split-slider");
     this.brushCursor = document.getElementById("brush-cursor");
     this.dropOverlay = document.getElementById("drop-overlay");
@@ -446,22 +447,37 @@ class SplashCanvasApp {
     this.shortcutsModal = document.getElementById("shortcuts-modal");
     this.toastContainer = document.getElementById("toast-container");
     this.workspace = document.getElementById("workspace");
+    this.leftDrawerTitle = document.getElementById("left-drawer-title");
   }
 
   /**
    * Switches the active workspace view panel on mobile and tablet screens.
-   * @param {"left"|"center"|"right"} panelName
+   * Tapping an already-open drawer tab toggles back to full-canvas view ("center").
+   * @param {"center"|"presets"|"mask"|"right"} panelName
    */
   setActivePanel(panelName) {
-    if (this.workspace) {
-      this.workspace.dataset.activePanel = panelName;
+    if (!this.workspace) return;
+    const current = this.workspace.dataset.activePanel || "center";
+    const nextPanel =
+      panelName !== "center" && current === panelName ? "center" : panelName;
+
+    this.workspace.dataset.activePanel = nextPanel;
+
+    if (this.leftDrawerTitle) {
+      this.leftDrawerTitle.textContent =
+        nextPanel === "mask" ? "Cutout & Mask Brush" : "Presets & Paper";
     }
+
     document.querySelectorAll(".mobile-tab-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.panel === panelName);
+      btn.classList.toggle("active", btn.dataset.panel === nextPanel);
     });
-    if (panelName === "center") {
-      this.scheduleRender();
+
+    const leftPanel = document.getElementById("left-panel");
+    if (leftPanel && (nextPanel === "presets" || nextPanel === "mask")) {
+      leftPanel.scrollTop = 0;
     }
+
+    this.scheduleRender();
   }
 
   _buildPresetCards() {
@@ -520,6 +536,9 @@ class SplashCanvasApp {
     if (snapshot.seed !== this.engine.seed) {
       this.engine.setSeed(snapshot.seed);
       this.seedReadout.textContent = `#${snapshot.seed}`;
+      if (this.mobileSeedReadout) {
+        this.mobileSeedReadout.textContent = `#${snapshot.seed}`;
+      }
     }
     this.engine.restoreUserBrushMask(snapshot.brushMask);
     document.querySelectorAll(".preset-card").forEach((el) => {
@@ -729,10 +748,40 @@ class SplashCanvasApp {
       });
     });
 
+    // Quick Category Filter Pills (All / Brush / Wash / Splatter / Sketch / Paper / Grade)
+    document.querySelectorAll(".cat-pill").forEach((pill) => {
+      pill.addEventListener("click", () => {
+        const cat = pill.dataset.cat || "all";
+        document.querySelectorAll(".cat-pill").forEach((p) => {
+          p.classList.toggle("active", p === pill);
+        });
+        if (this.paramSearchInput && this.paramSearchInput.value) {
+          this.paramSearchInput.value = "";
+        }
+        document.querySelectorAll(".control-group").forEach((group) => {
+          group.querySelectorAll(".control-row").forEach((r) => {
+            r.classList.remove("hidden");
+          });
+          const match = cat === "all" || group.dataset.group === cat;
+          group.classList.toggle("hidden", !match);
+          if (match) {
+            group.setAttribute("open", "");
+          }
+        });
+        const scrollEl = document.getElementById("sliders-scroll");
+        if (scrollEl) scrollEl.scrollTop = 0;
+      });
+    });
+
     // Parameter Filter / Search bar
     if (this.paramSearchInput) {
       this.paramSearchInput.addEventListener("input", (e) => {
         const q = e.target.value.trim().toLowerCase();
+        if (q) {
+          document.querySelectorAll(".cat-pill").forEach((p) => {
+            p.classList.toggle("active", p.dataset.cat === "all");
+          });
+        }
         document.querySelectorAll(".control-group").forEach((group) => {
           let visibleCount = 0;
           group.querySelectorAll(".control-row").forEach((row) => {
@@ -1005,6 +1054,9 @@ class SplashCanvasApp {
       const nextSeed = Math.floor(Math.random() * 90000) + 1000;
       this.engine.setSeed(nextSeed);
       this.seedReadout.textContent = `#${nextSeed}`;
+      if (this.mobileSeedReadout) {
+        this.mobileSeedReadout.textContent = `#${nextSeed}`;
+      }
       this.scheduleRender();
       this.showToast(`Re-rolled splatter seed (#${nextSeed})`);
     };
@@ -1015,13 +1067,31 @@ class SplashCanvasApp {
     document
       .getElementById("seed-pill-btn")
       .addEventListener("click", rerollSeed);
+    const mobileSeedBtn = document.getElementById("mobile-seed-btn");
+    if (mobileSeedBtn) {
+      mobileSeedBtn.addEventListener("click", rerollSeed);
+    }
 
-    document.getElementById("reset-all-btn").addEventListener("click", () => {
+    const resetAllParams = () => {
       this._recordHistorySnapshot();
       this.engine.clearUserBrushMask();
       this.applyPreset(this.currentPresetId);
       this.showToast("Reset all parameters to preset defaults");
-    });
+    };
+
+    document
+      .getElementById("reset-all-btn")
+      .addEventListener("click", resetAllParams);
+    const mobileResetBtn = document.getElementById("mobile-reset-btn");
+    if (mobileResetBtn) {
+      mobileResetBtn.addEventListener("click", resetAllParams);
+    }
+    const mobileSlidersResetBtn = document.getElementById(
+      "mobile-sliders-reset-btn"
+    );
+    if (mobileSlidersResetBtn) {
+      mobileSlidersResetBtn.addEventListener("click", resetAllParams);
+    }
 
     document.getElementById("export-btn").addEventListener("click", () => {
       this.exportArtwork();

@@ -56,22 +56,24 @@ body {
    Top Header Bar
    ============================================================================ */
 .top-bar {
-  height: 58px;
-  background: rgba(18, 21, 30, 0.95);
+  height: 56px;
+  background: rgba(18, 21, 30, 0.96);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 18px;
+  padding: 0 16px;
   flex-shrink: 0;
   z-index: 30;
+  gap: 12px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 11px;
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .brand-icon {
@@ -124,14 +126,15 @@ body {
 .top-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  flex-shrink: 0;
 }
 
 .divider-v {
   width: 1px;
   height: 22px;
   background: var(--border-subtle);
-  margin: 0 3px;
+  margin: 0 2px;
   flex-shrink: 0;
 }
 
@@ -142,23 +145,30 @@ body {
 }
 
 /* ============================================================================
-   Buttons & Select Controls
+   Buttons & Optically Centered Select / Chevron Controls
    ============================================================================ */
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
   font-size: 12.5px;
   font-weight: 600;
-  padding: 7px 12px;
+  padding: 0 12px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.14s ease;
   color: var(--text-main);
   background: var(--bg-panel-elevated);
-  line-height: 1.2;
+  line-height: 1;
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn svg {
+  display: block;
   flex-shrink: 0;
 }
 
@@ -173,7 +183,9 @@ body {
 }
 
 .btn-icon {
-  padding: 7px 8px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   background: var(--bg-panel-elevated);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
@@ -211,23 +223,22 @@ body {
 }
 
 .btn-ghost {
-  background: transparent;
-  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
 }
 
 .btn-ghost:hover:not(:disabled) {
   color: var(--text-main);
   background: var(--bg-panel-elevated);
-  border-color: var(--border-subtle);
+  border-color: var(--border-strong);
 }
 
-/* ============================================================================
-   Optically Centered Custom Select & Chevrons
-   ============================================================================ */
 .select-wrap {
   position: relative;
   display: inline-flex;
   align-items: center;
+  height: 34px;
   flex-shrink: 0;
 }
 
@@ -235,16 +246,18 @@ body {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
+  height: 34px;
   background: var(--bg-panel-elevated);
   color: var(--text-main);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 7px 28px 7px 11px;
+  padding: 0 28px 0 11px;
+  font-family: inherit;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+  line-height: 32px;
   outline: none;
   cursor: pointer;
-  line-height: 1.2;
   transition: border-color 0.14s, background-color 0.14s;
 }
 
@@ -266,9 +279,10 @@ body {
 
 .chevron-icon {
   display: block;
+  align-self: center;
   flex-shrink: 0;
   margin-left: 2px;
-  opacity: 0.75;
+  opacity: 0.8;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.14s ease;
 }
 
@@ -304,7 +318,7 @@ body {
   display: none;
   flex-direction: column;
   gap: 3px;
-  z-index: 100;
+  z-index: 120;
 }
 
 .sample-menu.open {
@@ -376,15 +390,13 @@ body {
   grid-template-columns: 304px 1fr 384px;
   flex: 1;
   min-height: 0;
-  height: calc(100vh - 58px);
-  height: calc(100dvh - 58px);
+  height: calc(100vh - 56px);
+  height: calc(100dvh - 56px);
 }
 
-.mobile-panel-bar {
-  display: none;
-}
-
-.mobile-tab-bar {
+.mobile-panel-bar,
+.mobile-tab-bar,
+.mobile-stage-seed {
   display: none;
 }
 
@@ -614,15 +626,16 @@ body {
 }
 
 .btn-tiny {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-subtle);
   color: var(--text-muted);
   font-size: 10.5px;
   font-weight: 600;
-  padding: 3px 8px;
+  padding: 4px 8px;
   border-radius: var(--radius-xs);
   cursor: pointer;
   transition: all 0.12s;
+  white-space: nowrap;
 }
 
 .btn-tiny:hover {
@@ -732,17 +745,17 @@ body {
 }
 
 .stage-toolbar {
-  height: 48px;
-  padding: 0 16px;
+  height: 46px;
+  padding: 0 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border-subtle);
-  background: rgba(18, 21, 30, 0.8);
+  background: rgba(18, 21, 30, 0.85);
   backdrop-filter: blur(10px);
   z-index: 10;
   flex-shrink: 0;
-  gap: 10px;
+  gap: 8px;
 }
 
 .view-toggles {
@@ -766,8 +779,9 @@ body {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   transition: all 0.12s;
+  white-space: nowrap;
 }
 
 .pill-btn kbd {
@@ -815,7 +829,7 @@ body {
   color: var(--text-secondary);
   font-size: 11px;
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 99px;
   cursor: pointer;
   transition: all 0.12s;
@@ -844,7 +858,7 @@ body {
 .stage-right-tools {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
@@ -926,7 +940,8 @@ body {
   justify-content: center;
   overflow: auto;
   position: relative;
-  padding: 22px 24px 44px;
+  padding: 20px 22px 42px;
+  min-height: 0;
 }
 
 .canvas-container {
@@ -944,8 +959,8 @@ body {
 #original-overlay-canvas {
   display: block;
   max-width: 100%;
-  max-height: calc(100vh - 180px);
-  max-height: calc(100dvh - 180px);
+  max-height: calc(100vh - 175px);
+  max-height: calc(100dvh - 175px);
   width: auto;
   height: auto;
   border-radius: 3px;
@@ -1124,7 +1139,7 @@ body {
 }
 
 /* ============================================================================
-   Right Panel: 24 Real-Time Sliders with Filter & Section Reset
+   Right Panel: 24 Real-Time Sliders with Category Pills, Filter & Section Reset
    ============================================================================ */
 .right-panel {
   background: var(--bg-panel);
@@ -1140,7 +1155,7 @@ body {
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
@@ -1162,6 +1177,56 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Quick Category Filter Pills */
+.category-pills {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.category-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.cat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4.5px 9px;
+  border-radius: 99px;
+  background: var(--bg-panel-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.12s ease;
+}
+
+.cat-pill:hover {
+  color: var(--text-main);
+  border-color: var(--border-strong);
+}
+
+.cat-pill.active {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.cat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .parameter-search-wrap {
@@ -1201,7 +1266,7 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 12px 14px 44px;
-  display: block; /* Block layout ensures <details> groups never flex-shrink or clip */
+  display: block;
 }
 
 /* Collapsible Control Groups */
@@ -1497,159 +1562,242 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 /* ============================================================================
-   RESPONSIVE DESIGN: Tablet Landscape (1025px to 1200px)
+   RESPONSIVE DESIGN: Tablet Landscape (1025px to 1220px)
    ============================================================================ */
-@media (min-width: 1025px) and (max-width: 1200px) {
+@media (min-width: 1025px) and (max-width: 1220px) {
   .workspace {
     grid-template-columns: 260px 1fr 330px;
   }
   .preset-grid {
     grid-template-columns: 1fr;
   }
+  .brand .subtitle {
+    display: none;
+  }
 }
 
 /* ============================================================================
-   RESPONSIVE DESIGN: Tablet Portrait & Mobile (<= 1024px)
+   RESPONSIVE DESIGN: Tablet & Mobile Live Split-Studio (<= 1024px)
    ============================================================================ */
 @media (max-width: 1024px) {
   .app-shell {
     height: 100dvh;
   }
 
-  /* Workspace becomes tabbed rather than 3 columns */
+  .brand .subtitle,
+  .brand .version-pill,
+  .desktop-only-action,
+  .divider-v {
+    display: none !important;
+  }
+
+  /* Workspace becomes a vertical split layout:
+     Top = Live Artwork Stage (100% when on Canvas tab, 44% when a drawer is open)
+     Bottom = Active Studio Drawer (56% when Presets, Mask, or Sliders tab is active) */
   .workspace {
-    display: block;
+    display: flex;
+    flex-direction: column;
     position: relative;
-    height: calc(100dvh - 58px - 58px);
+    height: calc(100dvh - 56px - 58px);
     overflow: hidden;
   }
 
-  /* Panel switching logic based on data-active-panel */
+  /* 1. Full Canvas Mode (default) */
+  .workspace[data-active-panel="center"] .canvas-stage {
+    display: flex !important;
+    flex: 1 1 100%;
+    height: 100%;
+  }
   .workspace[data-active-panel="center"] .left-panel,
   .workspace[data-active-panel="center"] .right-panel {
     display: none !important;
   }
-  .workspace[data-active-panel="center"] .canvas-stage {
+
+  /* 2. Live Split Mode when Presets, Mask, or Sliders drawer is open */
+  .workspace[data-active-panel="presets"] .canvas-stage,
+  .workspace[data-active-panel="mask"] .canvas-stage,
+  .workspace[data-active-panel="right"] .canvas-stage {
     display: flex !important;
-    width: 100%;
-    height: 100%;
+    flex: 0 0 43%;
+    height: 43%;
+    min-height: 170px;
+    border-bottom: 1px solid var(--border-strong);
   }
 
-  .workspace[data-active-panel="left"] .canvas-stage,
-  .workspace[data-active-panel="left"] .right-panel {
+  .workspace[data-active-panel="presets"] .canvas-viewport,
+  .workspace[data-active-panel="mask"] .canvas-viewport,
+  .workspace[data-active-panel="right"] .canvas-viewport {
+    padding: 6px 10px;
+  }
+
+  .workspace[data-active-panel="presets"] #output-canvas,
+  .workspace[data-active-panel="presets"] #original-overlay-canvas,
+  .workspace[data-active-panel="mask"] #output-canvas,
+  .workspace[data-active-panel="mask"] #original-overlay-canvas,
+  .workspace[data-active-panel="right"] #output-canvas,
+  .workspace[data-active-panel="right"] #original-overlay-canvas {
+    max-height: calc(43dvh - 64px);
+  }
+
+  .workspace[data-active-panel="presets"] .viewport-footer,
+  .workspace[data-active-panel="mask"] .viewport-footer,
+  .workspace[data-active-panel="right"] .viewport-footer {
+    display: none;
+  }
+
+  /* Left Panel (Presets tab OR Cutout & Brush tab) */
+  .workspace[data-active-panel="presets"] .right-panel,
+  .workspace[data-active-panel="mask"] .right-panel {
     display: none !important;
   }
-  .workspace[data-active-panel="left"] .left-panel {
+
+  .workspace[data-active-panel="presets"] .left-panel,
+  .workspace[data-active-panel="mask"] .left-panel {
     display: block !important;
+    flex: 1 1 57%;
+    height: 57%;
     width: 100%;
-    height: 100%;
     border-right: none;
-    padding: 0 16px 40px;
+    padding: 0 14px 28px;
     overflow-y: auto;
+    background: var(--bg-panel);
   }
 
-  .workspace[data-active-panel="right"] .canvas-stage,
+  /* Filter Left Panel sections so Presets tab only shows Presets+Paper, and Mask tab only shows Cutout+Brush */
+  .workspace[data-active-panel="presets"] .left-panel [data-left-section="mask"] {
+    display: none !important;
+  }
+  .workspace[data-active-panel="mask"] .left-panel [data-left-section="presets"] {
+    display: none !important;
+  }
+
+  /* Right Panel (Sliders tab) */
   .workspace[data-active-panel="right"] .left-panel {
     display: none !important;
   }
   .workspace[data-active-panel="right"] .right-panel {
     display: flex !important;
+    flex: 1 1 57%;
+    height: 57%;
     width: 100%;
-    height: 100%;
     border-left: none;
-    padding-bottom: 40px;
-    overflow-y: auto;
+    overflow: hidden;
+    background: var(--bg-panel);
   }
 
-  /* Sticky top bar inside mobile panels */
+  /* Sticky Drawer Header Bar */
   .mobile-panel-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 14px;
-    background: rgba(18, 21, 30, 0.95);
+    padding: 8px 14px;
+    background: rgba(24, 28, 40, 0.98);
     border-bottom: 1px solid var(--border-subtle);
-    margin: 0 -16px 16px -16px;
+    margin: 0 -14px 12px -14px;
     position: sticky;
     top: 0;
     z-index: 25;
-    backdrop-filter: blur(10px);
   }
   .right-panel .mobile-panel-bar {
-    margin: 0 0 8px 0;
+    margin: 0;
   }
+
+  .mobile-drawer-grip {
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32px;
+    height: 3.5px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.18);
+  }
+
   .mobile-panel-bar-title {
-    font-size: 13.5px;
+    font-size: 12.5px;
     font-weight: 700;
     color: #ffffff;
     letter-spacing: -0.01em;
   }
-  .btn-return-canvas {
-    font-size: 12px;
-    padding: 6px 11px;
-    background: var(--bg-panel-elevated);
-    border: 1px solid var(--border-strong);
-    color: var(--accent);
-  }
-  .btn-return-canvas:hover {
-    background: var(--bg-hover);
-  }
 
-  /* Bottom Navigation Tab Bar */
-  .mobile-tab-bar {
+  .mobile-panel-bar-actions {
     display: flex;
     align-items: center;
-    justify-content: space-around;
+    gap: 6px;
+  }
+
+  .btn-return-canvas {
+    height: 28px;
+    font-size: 11.5px;
+    padding: 0 10px;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: var(--accent);
+  }
+
+  /* Compact Sliders Header inside Mobile Drawer */
+  .right-panel .sliders-header {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+  .right-panel .sliders-header-top {
+    display: none;
+  }
+  .right-panel .sliders-scroll {
+    padding: 10px 12px 28px;
+  }
+
+  /* Bottom 4-Tab Studio Bar */
+  .mobile-tab-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    align-items: center;
     height: 58px;
-    background: rgba(18, 21, 30, 0.98);
-    border-top: 1px solid var(--border-subtle);
+    background: rgba(14, 17, 25, 0.98);
+    border-top: 1px solid var(--border-strong);
     backdrop-filter: blur(14px);
     flex-shrink: 0;
     z-index: 40;
-    padding: 4px 10px env(safe-area-inset-bottom, 0px);
+    padding: 3px 6px env(safe-area-inset-bottom, 0px);
   }
+
   .mobile-tab-btn {
-    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3.5px;
+    gap: 3px;
+    height: 48px;
     background: transparent;
     border: none;
     color: var(--text-muted);
-    padding: 6px 4px;
+    padding: 4px 2px;
     cursor: pointer;
     border-radius: var(--radius-sm);
     transition: all 0.14s ease;
   }
-  .mobile-tab-btn svg {
-    transition: transform 0.14s ease;
-  }
+
   .mobile-tab-btn span {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 600;
     line-height: 1.1;
-  }
-  .mobile-tab-btn:hover {
-    color: var(--text-main);
-  }
-  .mobile-tab-btn.active {
-    color: var(--accent);
-  }
-  .mobile-tab-btn.active svg {
-    transform: scale(1.12);
+    white-space: nowrap;
   }
 
-  /* Toast notification on tablet/mobile */
+  .mobile-tab-btn.active {
+    color: var(--accent);
+    background: rgba(56, 189, 248, 0.1);
+  }
+
+  /* Toast notification above tab bar */
   .toast-container {
-    bottom: 68px;
-    right: 18px;
-    left: 18px;
+    bottom: 66px;
+    right: 16px;
+    left: 16px;
     align-items: center;
   }
 
-  /* Touch adjustments on range inputs */
+  /* Touch-friendly range sliders & split handle */
   input[type="range"] {
     height: 7px;
   }
@@ -1657,8 +1805,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
     width: 20px;
     height: 20px;
   }
-
-  /* Split handle touch friendliness */
   .split-handle {
     width: 44px;
     height: 44px;
@@ -1667,159 +1813,171 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 /* ============================================================================
-   RESPONSIVE DESIGN: Mobile Screens (<= 768px)
+   RESPONSIVE DESIGN: Mobile Phones (<= 768px)
    ============================================================================ */
 @media (max-width: 768px) {
   .top-bar {
-    height: 54px;
+    height: 50px;
     padding: 0 10px;
+    gap: 6px;
   }
+
+  .workspace {
+    height: calc(100dvh - 50px - 58px);
+  }
+
   .brand {
-    gap: 8px;
+    gap: 7px;
   }
+
   .brand-icon {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     border-radius: 7px;
   }
+
   .brand-icon svg {
-    width: 17px;
-    height: 17px;
+    width: 16px;
+    height: 16px;
   }
+
   .brand h1 {
-    font-size: 14.5px;
+    font-size: 14px;
   }
-  .brand .subtitle,
-  .brand .version-pill {
+
+  .hide-sm {
     display: none;
   }
+
   .top-actions {
     gap: 5px;
   }
+
   .btn {
-    padding: 6px 9px;
+    height: 32px;
+    padding: 0 9px;
     font-size: 11.5px;
+    gap: 5px;
   }
+
   .btn-icon {
-    padding: 6px 7px;
+    width: 32px;
+    height: 32px;
   }
 
-  /* Hide verbose text labels on secondary buttons */
-  #randomize-seed-btn .btn-text,
-  #reset-all-btn .btn-text {
-    display: none;
-  }
-  #shortcuts-btn {
-    display: none; /* Shortcuts modal is for keyboard shortcuts */
-  }
-  .divider-v {
+  /* Hide desktop resolution dropdown in mobile navbar so navbar is never squished */
+  .export-group .select-wrap {
     display: none;
   }
 
-  /* Canvas Toolbar */
+  /* Clean single-row Stage Toolbar on Mobile */
   .stage-toolbar {
-    height: auto;
-    padding: 8px 10px;
-    flex-wrap: wrap;
+    height: 40px;
+    padding: 0 8px;
     gap: 6px;
-  }
-  .view-toggles {
-    order: 1;
+    flex-wrap: nowrap;
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    max-width: 100%;
+    scrollbar-width: none;
   }
+  .stage-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .stage-telemetry {
+    display: none;
+  }
+
+  .mobile-stage-seed {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
   .pill-btn {
     padding: 4px 8px;
     font-size: 11px;
-    white-space: nowrap;
   }
+
   .pill-btn .kbd-hint {
     display: none;
   }
-  .stage-telemetry {
-    order: 3;
-    width: 100%;
-    justify-content: space-between;
-    font-size: 10.5px;
-    padding-top: 4px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-  }
-  .stage-right-tools {
-    order: 2;
-    gap: 6px;
-  }
+
   .btn-hold-compare {
     padding: 4px 8px;
     font-size: 11px;
   }
 
+  .btn-hold-compare .hold-label {
+    display: none;
+  }
+
+  .zoom-controls {
+    display: none;
+  }
+
   /* Canvas Viewport */
   .canvas-viewport {
-    padding: 10px 10px 42px;
+    padding: 10px 10px 36px;
   }
+
   #output-canvas,
   #original-overlay-canvas {
-    max-height: calc(100dvh - 225px);
+    max-height: calc(100dvh - 165px);
   }
+
   .viewport-footer {
     left: 10px;
     right: 10px;
     bottom: 6px;
-    flex-direction: column;
-    gap: 4px;
-    align-items: center;
+    justify-content: center;
   }
+
   .ux-tip {
     display: none;
   }
+
   .photo-credit {
     font-size: 10px;
-    padding: 2.5px 8px;
-    text-align: center;
+    padding: 2.5px 9px;
     max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  /* Presets & Swatches on Mobile */
-  .preset-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
-  .preset-card {
-    padding: 8px 9px;
-  }
-  .swatch {
-    width: 34px;
-    height: 34px;
-  }
-
-  /* Sample Dropdown */
+  /* Sample Dropdown anchored cleanly below header */
   .sample-menu {
     position: fixed;
-    top: 56px;
+    top: 54px;
     left: 10px;
     right: 10px;
     width: auto;
     max-height: calc(100dvh - 120px);
     overflow-y: auto;
   }
+
+  .swatch {
+    width: 34px;
+    height: 34px;
+  }
 }
 
-/* Extra small mobile screens (<= 460px) */
-@media (max-width: 460px) {
-  .btn-secondary .btn-text,
-  #sample-menu-btn .btn-text,
-  #export-btn .btn-text {
+/* Compact Phone Screens (<= 430px): Icon-first Open & Samples so Navbar has generous space */
+@media (max-width: 430px) {
+  label[for="file-input"] .btn-text,
+  #sample-menu-btn .btn-text {
     display: none;
   }
-  .select-wrap .select-compact {
-    padding: 6px 22px 6px 8px;
-    font-size: 11px;
+
+  label[for="file-input"] {
+    width: 32px;
+    padding: 0;
   }
-  .select-wrap .select-chevron {
-    right: 6px;
+
+  #sample-menu-btn {
+    padding: 0 7px;
+    gap: 3px;
   }
 }

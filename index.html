@@ -36,7 +36,7 @@
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          <span class="btn-text">Open Photo</span>
+          <span class="btn-text">Open<span class="hide-sm"> Photo</span></span>
         </label>
         <input type="file" id="file-input" accept="image/*" hidden />
 
@@ -47,7 +47,7 @@
               <circle cx="8.5" cy="8.5" r="1.5"/>
               <polyline points="21 15 16 10 5 21"/>
             </svg>
-            <span class="btn-text">Sample Photos</span>
+            <span class="btn-text">Samples<span class="hide-sm"> Gallery</span></span>
             <svg class="chevron-icon" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
               <path d="M2 3.75L5 6.75L8 3.75"/>
             </svg>
@@ -103,7 +103,7 @@
           </button>
         </div>
 
-        <button class="btn btn-ghost" id="randomize-seed-btn" title="Generate a new deterministic PRNG splatter &amp; wash layout (Shortcut: R)">
+        <button class="btn btn-ghost desktop-only-action" id="randomize-seed-btn" title="Generate a new deterministic PRNG splatter &amp; wash layout (Shortcut: R)">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/>
             <polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
@@ -112,7 +112,7 @@
           <span class="btn-text">Re-Roll Seed</span>
         </button>
 
-        <button class="btn btn-ghost" id="reset-all-btn" title="Reset all parameters &amp; mask edits to the active preset defaults">
+        <button class="btn btn-ghost desktop-only-action" id="reset-all-btn" title="Reset all parameters &amp; mask edits to the active preset defaults">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
             <path d="M3 3v5h5"/>
@@ -120,7 +120,7 @@
           <span class="btn-text">Reset</span>
         </button>
 
-        <button class="btn btn-icon" id="shortcuts-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+        <button class="btn btn-icon desktop-only-action" id="shortcuts-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="4" width="20" height="16" rx="2"/>
             <path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M8 12h.001M12 12h.001M16 12h.001M7 16h10"/>
@@ -147,36 +147,54 @@
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            <span class="btn-text">Export PNG</span>
+            <span class="btn-text">Export<span class="hide-sm"> PNG</span></span>
           </button>
         </div>
       </div>
     </header>
 
-    <!-- Main Studio Workspace (3-Column on Desktop, Tabbed Switcher on Mobile & Tablet) -->
+    <!-- Main Studio Workspace (3-Column on Desktop, Live Split-Preview + Bottom Sheet on Mobile & Tablet) -->
     <div class="workspace" id="workspace" data-active-panel="center">
       <!-- Left Sidebar: Presets, Subject Segmentation & Masking Brush -->
       <aside class="left-panel" id="left-panel" aria-label="Presets and Subject Segmentation">
         <div class="mobile-panel-bar">
-          <span class="mobile-panel-bar-title">Presets &amp; Masking</span>
-          <button type="button" class="btn btn-secondary btn-return-canvas" data-to-panel="center">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            <span>View Canvas</span>
-          </button>
+          <div class="mobile-drawer-grip" aria-hidden="true"></div>
+          <span class="mobile-panel-bar-title" id="left-drawer-title">Presets &amp; Paper</span>
+          <div class="mobile-panel-bar-actions">
+            <button type="button" class="btn-tiny" id="mobile-reset-btn" title="Reset parameters to preset defaults">Reset All</button>
+            <button type="button" class="btn btn-secondary btn-return-canvas" data-to-panel="center">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 12 15 18 9"/></svg>
+              <span>Done</span>
+            </button>
+          </div>
         </div>
 
-        <div class="panel-section">
+        <div class="panel-section" data-left-section="presets">
           <div class="section-header">
             <h2>Aquarelle Presets</h2>
             <span class="badge">8 Styles</span>
           </div>
-          <p class="section-hint">Curated pigment, wash bleed, and splatter profiles</p>
+          <p class="section-hint">Tap a preset below — watch the artwork update live above</p>
           <div class="preset-grid" id="preset-grid" role="radiogroup" aria-label="Watercolor style presets">
             <!-- Populated dynamically by app.js -->
           </div>
         </div>
 
-        <div class="panel-section">
+        <div class="panel-section paper-tint-section" data-left-section="presets">
+          <div class="section-header">
+            <h2>Paper Stock Tone</h2>
+            <span class="paper-name-label" id="paper-name-label">Cold-Press White</span>
+          </div>
+          <div class="swatch-row" id="paper-swatches" role="radiogroup" aria-label="Paper stock tone">
+            <button class="swatch active" data-tint="#f6f5f0" data-name="Cold-Press White" style="background:#f6f5f0" title="Cold-Press Bright White (#f6f5f0)" aria-label="Cold-Press Bright White"></button>
+            <button class="swatch" data-tint="#f3efe6" data-name="Warm Cotton Rag" style="background:#f3efe6" title="Warm Cotton Rag (#f3efe6)" aria-label="Warm Cotton Rag"></button>
+            <button class="swatch" data-tint="#ede6d6" data-name="Archival Cream" style="background:#ede6d6" title="Archival Vintage Cream (#ede6d6)" aria-label="Archival Vintage Cream"></button>
+            <button class="swatch" data-tint="#eef1f5" data-name="Cool French Grey" style="background:#eef1f5" title="Cool French Grey (#eef1f5)" aria-label="Cool French Grey"></button>
+            <button class="swatch" data-tint="#f7eee8" data-name="Blush Parchment" style="background:#f7eee8" title="Warm Blush Parchment (#f7eee8)" aria-label="Blush Parchment"></button>
+          </div>
+        </div>
+
+        <div class="panel-section" data-left-section="mask">
           <div class="section-header">
             <h2>Subject Isolation</h2>
             <span class="badge" id="ai-status-badge">Saliency Mask</span>
@@ -256,20 +274,6 @@
             </div>
           </div>
         </div>
-
-        <div class="panel-section paper-tint-section">
-          <div class="section-header">
-            <h2>Paper Stock Tone</h2>
-            <span class="paper-name-label" id="paper-name-label">Cold-Press White</span>
-          </div>
-          <div class="swatch-row" id="paper-swatches" role="radiogroup" aria-label="Paper stock tone">
-            <button class="swatch active" data-tint="#f6f5f0" data-name="Cold-Press White" style="background:#f6f5f0" title="Cold-Press Bright White (#f6f5f0)" aria-label="Cold-Press Bright White"></button>
-            <button class="swatch" data-tint="#f3efe6" data-name="Warm Cotton Rag" style="background:#f3efe6" title="Warm Cotton Rag (#f3efe6)" aria-label="Warm Cotton Rag"></button>
-            <button class="swatch" data-tint="#ede6d6" data-name="Archival Cream" style="background:#ede6d6" title="Archival Vintage Cream (#ede6d6)" aria-label="Archival Vintage Cream"></button>
-            <button class="swatch" data-tint="#eef1f5" data-name="Cool French Grey" style="background:#eef1f5" title="Cool French Grey (#eef1f5)" aria-label="Cool French Grey"></button>
-            <button class="swatch" data-tint="#f7eee8" data-name="Blush Parchment" style="background:#f7eee8" title="Warm Blush Parchment (#f7eee8)" aria-label="Blush Parchment"></button>
-          </div>
-        </div>
       </aside>
 
       <!-- Center Viewport: Interactive Canvas, Split Compare & Telemetry Bar -->
@@ -281,7 +285,7 @@
               <kbd class="kbd-hint">1</kbd>
             </button>
             <button class="pill-btn" data-view="split" role="tab" title="Interactive Before/After Split Comparison (Shortcut: 2)">
-              <span>Split Compare</span>
+              <span>Split</span>
               <kbd class="kbd-hint">2</kbd>
             </button>
             <button class="pill-btn" data-view="original" role="tab" title="Original Source Photograph (Shortcut: 3)">
@@ -289,7 +293,7 @@
               <kbd class="kbd-hint">3</kbd>
             </button>
             <button class="pill-btn" data-view="mask" role="tab" title="Alpha Wash &amp; Subject Isolation Mask (Shortcut: 4)">
-              <span>Alpha Mask</span>
+              <span>Mask</span>
               <kbd class="kbd-hint">4</kbd>
             </button>
           </div>
@@ -299,17 +303,21 @@
             <span id="render-time-label">Initializing engine...</span>
             <span class="telemetry-sep">·</span>
             <button class="seed-pill" id="seed-pill-btn" title="Click to generate a new random splatter seed (Shortcut: R)">
-              Seed <span id="seed-readout">#2026</span>
+              🎲 Seed <span id="seed-readout">#2026</span>
             </button>
           </div>
 
           <div class="stage-right-tools">
+            <button class="seed-pill mobile-stage-seed" id="mobile-seed-btn" title="Tap to re-roll random splatters">
+              🎲 <span id="mobile-seed-readout">#2026</span>
+            </button>
+
             <button class="btn-hold-compare" id="hold-compare-btn" title="Press and hold (or hold Spacebar) to peek at original photo">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                 <circle cx="12" cy="12" r="3"/>
               </svg>
-              <span>Hold Original</span>
+              <span class="hold-label">Hold Original</span>
             </button>
 
             <div class="zoom-controls">
@@ -369,14 +377,18 @@
         </div>
       </main>
 
-      <!-- Right Sidebar: 24 Real-Time Effect Sliders with Filter & Section Reset -->
+      <!-- Right Sidebar: 24 Real-Time Effect Sliders with Category Pills, Filter & Section Reset -->
       <aside class="right-panel" id="right-panel" aria-label="Watercolor Effect Controls">
         <div class="mobile-panel-bar">
-          <span class="mobile-panel-bar-title">Effect Controls (24 Sliders)</span>
-          <button type="button" class="btn btn-secondary btn-return-canvas" data-to-panel="center">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            <span>View Canvas</span>
-          </button>
+          <div class="mobile-drawer-grip" aria-hidden="true"></div>
+          <span class="mobile-panel-bar-title">Effect Sliders (24)</span>
+          <div class="mobile-panel-bar-actions">
+            <button type="button" class="btn-tiny" id="mobile-sliders-reset-btn" title="Reset all parameters to preset defaults">Reset All</button>
+            <button type="button" class="btn btn-secondary btn-return-canvas" data-to-panel="center">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 12 15 18 9"/></svg>
+              <span>Done</span>
+            </button>
+          </div>
         </div>
 
         <div class="sliders-header">
@@ -386,11 +398,23 @@
               <button class="btn-tiny" id="toggle-sections-btn" title="Collapse or expand all parameter groups">Collapse All</button>
             </div>
           </div>
+
+          <!-- Quick Category Jump / Filter Pills (Fast 1-tap group switching on Mobile & Desktop) -->
+          <div class="category-pills" id="category-pills" role="tablist" aria-label="Parameter categories">
+            <button type="button" class="cat-pill active" data-cat="all">All (24)</button>
+            <button type="button" class="cat-pill" data-cat="brush"><span class="cat-dot" style="background:#38bdf8"></span>Brush</button>
+            <button type="button" class="cat-pill" data-cat="wash"><span class="cat-dot" style="background:#818cf8"></span>Wash</button>
+            <button type="button" class="cat-pill" data-cat="splatter"><span class="cat-dot" style="background:#f472b6"></span>Splatter</button>
+            <button type="button" class="cat-pill" data-cat="sketch"><span class="cat-dot" style="background:#fbbf24"></span>Sketch</button>
+            <button type="button" class="cat-pill" data-cat="paper"><span class="cat-dot" style="background:#34d399"></span>Paper</button>
+            <button type="button" class="cat-pill" data-cat="grading"><span class="cat-dot" style="background:#fb7185"></span>Grade</button>
+          </div>
+
           <div class="parameter-search-wrap">
             <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input type="search" id="param-search-input" class="param-search-input" placeholder="Filter 24 parameters (e.g. drip, ring, grain)..." aria-label="Filter effect parameters" />
+            <input type="search" id="param-search-input" class="param-search-input" placeholder="Search 24 sliders (e.g. drip, ring, grain)..." aria-label="Filter effect parameters" />
           </div>
         </div>
 
@@ -670,10 +694,19 @@
       </aside>
     </div>
 
-    <!-- Mobile & Tablet Studio Panel Switcher Bar -->
-    <nav class="mobile-tab-bar" id="mobile-tab-bar" aria-label="Mobile panel switcher">
-      <button type="button" class="mobile-tab-btn" data-panel="left" aria-label="Presets and Subject Masking">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Mobile & Tablet 4-Tab Studio Navigation Bar -->
+    <nav class="mobile-tab-bar" id="mobile-tab-bar" aria-label="Mobile studio navigation">
+      <button type="button" class="mobile-tab-btn active" data-panel="center" aria-label="Full Canvas View">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <span>Canvas</span>
+      </button>
+
+      <button type="button" class="mobile-tab-btn" data-panel="presets" aria-label="Presets and Paper Tones">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
           <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
           <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
@@ -683,17 +716,16 @@
         <span>Presets</span>
       </button>
 
-      <button type="button" class="mobile-tab-btn active" data-panel="center" aria-label="Watercolor Artwork Canvas">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/>
-          <polyline points="21 15 16 10 5 21"/>
+      <button type="button" class="mobile-tab-btn" data-panel="mask" aria-label="Subject Cutout and Mask Brush">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18.37 2.63 14 7l-1.59-1.59a2 2 0 0 0-2.82 0L8 7l9 9 1.59-1.59a2 2 0 0 0 0-2.82L17 10l4.37-4.37a2.12 2.12 0 1 0-3-3Z"/>
+          <path d="M9 8c-2 3-4 3.5-7 4l8 10c2-1 6-5 6-7"/>
         </svg>
-        <span>Artwork</span>
+        <span>Cutout &amp; Brush</span>
       </button>
 
       <button type="button" class="mobile-tab-btn" data-panel="right" aria-label="24 Real-Time Effect Sliders">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="4" y1="21" x2="4" y2="14"/>
           <line x1="4" y1="10" x2="4" y2="3"/>
           <line x1="12" y1="21" x2="12" y2="12"/>
