@@ -45,6 +45,7 @@
  * @property {number} washSpread           - Outer wash aura dilation [0..100]
  * @property {number} edgeRoughness        - fBm boundary perturbation amplitude [0..100]
  * @property {number} edgeSoftness         - Hermite smoothstep feather width [5..100]
+ * @property {number} deckleEdge           - Procedural torn-paper border width [0..100]
  * @property {number} waterRingIntensity   - Wet-edge pigment pooling rim [0..100]
  * @property {number} splatterAmount       - Boundary splatter & droplet density [0..100]
  * @property {number} splatterSize         - Splatter & bloom radius scale [10..100]
@@ -210,6 +211,21 @@ class WatercolorEngine {
 
     // Precomputed 64-bit Summed-Area Tables (Integral Images) for O(1) Kuwahara & Box filters
     this.integralTables = null;  // { gw, gh, sumR, sumG, sumB, sumL, sumL2 }
+
+    // Precomputed 1D perimeter profile for torn-paper deckle edge
+    this.deckleTop = null;       // Float32Array [0..1]
+    this.deckleBottom = null;    // Float32Array [0..1]
+    this.deckleLeft = null;      // Float32Array [0..1]
+    this.deckleRight = null;     // Float32Array [0..1]
+
+    // Precomputed static 256-entry sine LUT for drying contact line meniscus
+    this.sinLUT = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      const a = i / 255;
+      this.sinLUT[i] = (a >= 0.05 && a <= 0.80)
+        ? Math.sin(((a - 0.05) / 0.75) * Math.PI)
+        : 0;
+    }
 
     // Memoized Stage-2 base pigment buffer
     this.paintedRGB = null;      // Uint8ClampedArray (RGBA)
@@ -544,6 +560,21 @@ class WatercolorEngine {
 
     this.paperField = new Float32Array(w * h);
     this.cloudField = new Float32Array(w * h);
+
+    // Precompute 1D perimeter deckle edge displacement profiles
+    this.deckleTop = new Float32Array(w);
+    this.deckleBottom = new Float32Array(w);
+    this.deckleLeft = new Float32Array(h);
+    this.deckleRight = new Float32Array(h);
+
+    for (let x = 0; x < w; x++) {
+      this.deckleTop[x] = 0.55 + 0.60 * this.perlin.fbm(x / 14, 0, 3, 0.5, 2.0);
+      this.deckleBottom[x] = 0.55 + 0.60 * this.perlin.fbm(x / 14, 1, 3, 0.5, 2.0);
+    }
+    for (let y = 0; y < h; y++) {
+      this.deckleLeft[y] = 0.55 + 0.60 * this.perlin.fbm(0, y / 14, 3, 0.5, 2.0);
+      this.deckleRight[y] = 0.55 + 0.60 * this.perlin.fbm(1, y / 14, 3, 0.5, 2.0);
+    }
 
     const rng = new SeededRandom(this.seed + 99);
 
@@ -883,6 +914,11 @@ class WatercolorEngine {
     const granulation = (params.pigmentGranulation / 100) * 0.45;
     const waterRingStrength = (params.waterRingIntensity / 100) * 0.58;
     const dryBrushGap = (params.paperShowThrough / 100) * 0.42;
+    const maxDeckle = Math.round(
+      ((params.deckleEdge !== undefined ? params.deckleEdge : 45) / 100) *
+        24 *
+        (Math.min(w, h) / 900)
+    );
 
     const sketchOpacity = (params.sketchIntensity / 100) * 0.85;
     const sketchThresh = 1.05 - (params.sketchDetail / 100) * 0.85;
@@ -931,21 +967,57 @@ class WatercolorEngine {
           this.paintedRGB[p + 2] * coreWeight +
           bledColors[p + 2] * (1 - coreWeight);
 
-        // Pigment granulation (pigment settles into cold-press paper valleys)
+        // Pigment granulation (settles into cold-press paper valleys with cool mineral undertones)
         if (granulation > 0 && alpha > 0.02) {
           const settle = 1.0 - (paperVal - 0.5) * granulation;
           fgR *= settle;
           fgG *= settle;
           fgB *= settle;
+          if (paperVal < 0.48) {
+            const valleyDepth = (0.48 - paperVal) * granulation * 2.0;
+            fgB = Math.min(255, fgB + valleyDepth * 3.5);
+            fgR = Math.max(0, fgR - valleyDepth * 2.0);
+          }
         }
 
-        // Wet water-ring edge darkening (pigment migration toward drying boundary)
-        if (waterRingStrength > 0 && alpha > 0.08 && alpha < 0.72) {
-          const ringBell = Math.sin(((alpha - 0.08) / 0.64) * Math.PI);
-          const darken = 1.0 - ringBell * waterRingStrength * 0.38;
-          fgR *= darken;
-          fgG *= darken;
-          fgB *= darken;
+        // 1. Spatial Meniscus Wet-Edge Darkening (candidate pre-filtering + clamped central difference gradient)
+        if (waterRingStrength > 0 && alpha > 0.01 && alpha < 0.99 && x > 0 && x < w - 1 && y > 0 && y < h - 1) {
+          const gx = (baseMask[idx + 1] - baseMask[idx - 1]) * 0.5;
+          const gy = (baseMask[idx + w] - baseMask[idx - w]) * 0.5;
+          const G = Math.hypot(gx, gy);
+
+          if (G > 0.06) {
+            const gradFactor = Math.min(1, (G - 0.06) / 0.28);
+            const ringBell = this.sinLUT[Math.round(alpha * 255)];
+            const M = gradFactor * ringBell;
+
+            if (M > 0) {
+              const darken = 1.0 - M * waterRingStrength * 0.42;
+              fgR *= darken;
+              fgG *= darken;
+              fgB *= darken;
+
+              const gray = 0.299 * fgR + 0.587 * fgG + 0.114 * fgB;
+              const chromaFactor = 1.0 + 0.15 * M;
+              fgR = Math.max(0, Math.min(255, gray + (fgR - gray) * chromaFactor));
+              fgG = Math.max(0, Math.min(255, gray + (fgG - gray) * chromaFactor));
+              fgB = Math.max(0, Math.min(255, gray + (fgB - gray) * chromaFactor));
+            }
+          } else if (G < 0.04 && alpha > 0.05 && alpha < 0.70) {
+            const deplete = (1.0 - G / 0.04) * waterRingStrength;
+            const depleteFactor = 1.0 + deplete * 0.06;
+            fgR = Math.min(255, fgR * depleteFactor);
+            fgG = Math.min(255, fgG * depleteFactor);
+            fgB = Math.min(255, fgB * depleteFactor);
+          }
+        }
+
+        // Subtractive Midtone Glaze Blending (Beer-Lambert optical transmission)
+        const glazeMix = Math.max(0, Math.min(0.60, (1.0 - coreWeight * 0.6) * 0.55));
+        if (glazeMix > 0) {
+          fgR = fgR * (1 - glazeMix) + ((paperRGB[0] * fgR) / 255) * glazeMix;
+          fgG = fgG * (1 - glazeMix) + ((paperRGB[1] * fgG) / 255) * glazeMix;
+          fgB = fgB * (1 - glazeMix) + ((paperRGB[2] * fgB) / 255) * glazeMix;
         }
 
         // Sobel Graphite / Sepia Ink Contour Overlay
@@ -973,6 +1045,23 @@ class WatercolorEngine {
         dst[p + 1] = Math.max(0, Math.min(255, finalG));
         dst[p + 2] = Math.max(0, Math.min(255, finalB));
         dst[p + 3] = 255;
+
+        // Procedural Torn-Paper Deckle Edge Border (modulates alpha channel directly)
+        if (maxDeckle > 0 && this.deckleTop && this.deckleBottom) {
+          const d = Math.min(x, w - 1 - x, y, h - 1 - y);
+          if (d < maxDeckle * 1.15) {
+            const tau = maxDeckle * Math.min(
+              this.deckleTop[x],
+              this.deckleBottom[x],
+              this.deckleLeft[y],
+              this.deckleRight[y]
+            );
+            if (d < tau) {
+              const factor = Math.max(0, Math.min(1, (d - tau + 1.5) / 1.5));
+              dst[p + 3] = Math.round(dst[p + 3] * factor);
+            }
+          }
+        }
       }
     }
 
@@ -1260,9 +1349,23 @@ class WatercolorEngine {
         Math.PI * 2
       );
       ctx.fill();
+
+      // Trailing directional satellite micro-droplets along projection vector
+      if (dropR > 2.8 * scaleFactor) {
+        const numSatellites = Math.floor(rng.range(1, 3.99));
+        for (let k = 1; k <= numSatellites; k++) {
+          const satDist = dist + dropR * (2.2 * k + rng.range(0.5, 1.5));
+          const satX = b.x + Math.cos(angle) * satDist;
+          const satY = b.y + Math.sin(angle) * satDist;
+          const satRadius = Math.max(0.6 * scaleFactor, dropR * Math.pow(0.35, k));
+          ctx.beginPath();
+          ctx.arc(satX, satY, satRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
     }
 
-    // C. Vertical Watercolor Gravity Drips (bottom edge runs)
+    // C. Vertical Watercolor Gravity Drips (bottom edge runs with fluid polygon tapering)
     const dripStrength = params.dripLength / 100;
     if (dripStrength > 0.02) {
       const lowerCandidates = boundaryCandidates.filter(
@@ -1286,33 +1389,64 @@ class WatercolorEngine {
 
         const len =
           rng.range(25, 165) * dripStrength * scaleFactor;
-        const width = rng.range(1.5, 4.8) * scaleFactor;
+        const w0 = rng.range(1.8, 4.2) * scaleFactor;
         const alpha = rng.range(0.32, 0.72);
 
-        ctx.beginPath();
-        let curX = b.x + rng.range(-6, 6) * scaleFactor;
-        let curY = b.y;
-        ctx.moveTo(curX, curY);
-
-        const segments = 8;
+        const segments = 10;
         const segLen = len / segments;
-        for (let s = 1; s <= segments; s++) {
-          curX += rng.range(-2.2, 2.2) * scaleFactor;
-          curY += segLen;
-          ctx.lineTo(curX, curY);
+        const leftPts = [];
+        const rightPts = [];
+
+        let curX = b.x + rng.range(-4, 4) * scaleFactor;
+        let curY = b.y;
+
+        for (let s = 0; s <= segments; s++) {
+          const t = s / segments;
+          // Fluid parametric width profile: tapers from origin to neck, pools into teardrop head
+          const widthT =
+            w0 *
+            (1.35 * (1 - t) + 0.50 * Math.sin(Math.PI * t) + 2.50 * Math.pow(t, 4));
+          const halfW = widthT * 0.5;
+          leftPts.push({ x: curX - halfW, y: curY });
+          rightPts.push({ x: curX + halfW, y: curY });
+          if (s < segments) {
+            curX += rng.range(-1.8, 1.8) * scaleFactor;
+            curY += segLen;
+          }
         }
 
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${bl}, ${alpha.toFixed(2)})`;
-        ctx.lineWidth = width;
-        ctx.lineCap = "round";
+        // Draw closed tapered polygonal contour
+        ctx.beginPath();
+        ctx.moveTo(leftPts[0].x, leftPts[0].y);
+        for (let s = 1; s <= segments; s++) {
+          ctx.lineTo(leftPts[s].x, leftPts[s].y);
+        }
+        // Round bottom cap
+        ctx.arc(curX, curY, Math.max(0.1, rightPts[segments].x - curX), 0, Math.PI);
+        for (let s = segments; s >= 0; s--) {
+          ctx.lineTo(rightPts[s].x, rightPts[s].y);
+        }
+        ctx.closePath();
+
+        ctx.fillStyle = `rgba(${r}, ${g}, ${bl}, ${(alpha * 0.65).toFixed(2)})`;
+        ctx.fill();
+
+        // Dark capillary edge stroke along fluid run
+        ctx.strokeStyle = `rgba(${Math.max(0, r - 28)}, ${Math.max(
+          0,
+          g - 28
+        )}, ${Math.max(0, bl - 28)}, ${(alpha * 0.85).toFixed(2)})`;
+        ctx.lineWidth = Math.max(0.6, 0.8 * scaleFactor);
         ctx.stroke();
 
-        ctx.fillStyle = `rgba(${Math.max(0, r - 18)}, ${Math.max(
-          0,
-          g - 18
-        )}, ${Math.max(0, bl - 18)}, ${(alpha * 1.1).toFixed(2)})`;
+        // Bulbous teardrop reservoir at terminal head (t = 1.0)
+        const headRadius = w0 * 1.6;
         ctx.beginPath();
-        ctx.arc(curX, curY, width * 1.25, 0, Math.PI * 2);
+        ctx.arc(curX, curY + headRadius * 0.3, headRadius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${Math.max(0, r - 16)}, ${Math.max(
+          0,
+          g - 16
+        )}, ${Math.max(0, bl - 16)}, ${(alpha * 0.88).toFixed(2)})`;
         ctx.fill();
       }
     }
@@ -1322,7 +1456,7 @@ class WatercolorEngine {
 
   /**
    * Renders an irregular polygon watercolor splatter bloom with radial pigment
-   * gradient and darkened wet water-ring rim.
+   * gradient, harmonic capillary starburst petals, and darkened wet water-ring rim.
    * @private
    */
   _drawOrganicSplatterBlob(
@@ -1337,11 +1471,17 @@ class WatercolorEngine {
     waterRing,
     rng
   ) {
-    const vertices = 10;
+    const vertices = 24;
+    const phase = rng.range(0, Math.PI * 2);
     ctx.beginPath();
     for (let i = 0; i <= vertices; i++) {
       const theta = (i / vertices) * Math.PI * 2;
-      const radVar = radius * rng.range(0.68, 1.28);
+      // Capillary starburst harmonic petals with random phase to prevent sampling cancellation
+      const harmonic =
+        radius > 10
+          ? 0.18 * Math.sin(5 * theta + phase) + 0.12 * Math.cos(9 * theta)
+          : 0;
+      const radVar = radius * (1.0 + harmonic) * rng.range(0.78, 1.22);
       const vx = cx + Math.cos(theta) * radVar;
       const vy = cy + Math.sin(theta) * radVar;
       if (i === 0) ctx.moveTo(vx, vy);

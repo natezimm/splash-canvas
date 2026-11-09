@@ -1368,6 +1368,15 @@ body {
   flex-shrink: 0;
 }
 
+/* Standard vs Advanced Sliders View */
+.mode-standard .control-row.advanced {
+  display: none !important;
+}
+
+.mode-standard.is-searching .control-row.advanced:not(.hidden) {
+  display: flex !important;
+}
+
 .control-row.compact {
   gap: 4px;
 }
@@ -1979,5 +1988,416 @@ input[type="range"]::-webkit-slider-thumb:hover {
   #sample-menu-btn {
     padding: 0 7px;
     gap: 3px;
+  }
+}
+
+/* ============================================================================
+   Milestone 2 Studio Ergonomics: View Mode, Smart Enhance, Custom Presets & Pan
+   ============================================================================ */
+
+#view-mode-toggle {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.28);
+  color: var(--accent);
+}
+
+#view-mode-toggle:hover {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: var(--accent);
+}
+
+.mode-advanced #view-mode-toggle {
+  background: rgba(129, 140, 248, 0.12);
+  border-color: rgba(129, 140, 248, 0.35);
+  color: var(--accent-indigo);
+}
+
+.btn-magic {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.14) 0%, rgba(129, 140, 248, 0.2) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  color: #e0f2fe;
+}
+
+.btn-magic:hover {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25) 0%, rgba(129, 140, 248, 0.32) 100%);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.22);
+}
+
+.section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#save-preset-btn {
+  color: var(--accent);
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+#save-preset-btn:hover {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: var(--accent);
+}
+
+.preset-card.custom-preset {
+  border-style: dashed;
+}
+
+.preset-delete-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(248, 113, 113, 0.14);
+  color: #fca5a5;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.15s, background-color 0.15s;
+  z-index: 2;
+}
+
+.preset-delete-btn:hover {
+  opacity: 1;
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.modal-desc {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: 14px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.text-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.text-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.canvas-viewport.can-pan {
+  cursor: grab;
+}
+
+.canvas-viewport.is-panning {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.canvas-viewport.can-pan .canvas-container {
+  cursor: grab;
+}
+
+.canvas-viewport.is-panning .canvas-container {
+  cursor: grabbing !important;
+}
+
+/* ============================================================================
+   Milestone 3 Gallery Framing & Print Studio
+   ============================================================================ */
+
+/* Frame Selector in Stage Toolbar */
+.frame-select-wrap {
+  height: 28px;
+}
+
+.frame-select-wrap .frame-icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.frame-select {
+  height: 28px;
+  line-height: 26px;
+  font-size: 11.5px;
+  padding: 0 24px 0 26px;
+  background: var(--bg-panel-elevated);
+}
+
+/* Gallery Framing Preview on Canvas Container */
+.canvas-container.frame-oak,
+.canvas-container.frame-black,
+.canvas-container.frame-white {
+  padding: 28px;
+  background-color: #fbfaf7;
+  box-sizing: content-box;
+  transition: transform 0.1s ease-out, padding 0.25s ease, background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Inner mat bevel shadow overlay */
+.canvas-container.frame-oak::after,
+.canvas-container.frame-black::after,
+.canvas-container.frame-white::after {
+  content: "";
+  position: absolute;
+  top: 28px;
+  left: 28px;
+  right: 28px;
+  bottom: 28px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 0 1px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  border-radius: 2px;
+  z-index: 5;
+}
+
+/* Ensure overlays and split slider align to the canvas inside the mat */
+.canvas-container[class*="frame-"] #original-overlay-canvas,
+.canvas-container[class*="frame-"] .split-slider {
+  top: 28px;
+  left: 28px;
+  width: calc(100% - 56px);
+  height: calc(100% - 56px);
+}
+
+/* 1. Scandinavian Natural Oak Frame */
+.canvas-container.frame-oak {
+  border: 18px solid #b58d59;
+  outline: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.75),
+    0 10px 24px rgba(0, 0, 0, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* 2. Minimalist Gallery Black Wood Frame */
+.canvas-container.frame-black {
+  border: 16px solid #18191c;
+  outline: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 32px 84px rgba(0, 0, 0, 0.85),
+    0 12px 28px rgba(0, 0, 0, 0.6),
+    inset 0 1px 1px rgba(255, 255, 255, 0.15),
+    inset 0 -1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* 3. Modern Floating White Gallery Frame */
+.canvas-container.frame-white {
+  border: 18px solid #f2eee9;
+  outline: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 28px 76px rgba(0, 0, 0, 0.65),
+    0 8px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 3px rgba(255, 255, 255, 0.8),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Export / Print Studio Modal Styling */
+.export-modal-card {
+  width: 500px;
+  max-width: 100%;
+}
+
+.modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.export-dimension-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.dimension-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dimension-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dimension-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+
+.dimension-subtitle {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.export-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.select-block {
+  width: 100%;
+}
+
+.select-full {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  height: 36px;
+  background: var(--bg-dark);
+  color: var(--text-main);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0 28px 0 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.14s;
+}
+
+.select-full:focus {
+  border-color: var(--accent);
+}
+
+.export-frame-option {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkbox-custom {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-dark);
+  margin-top: 2px;
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.14s ease;
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 2.5px;
+  width: 4px;
+  height: 8px;
+  border: solid #0b0d13;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.checkbox-text strong {
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.checkbox-text span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.export-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .export-options-grid {
+    grid-template-columns: 1fr;
   }
 }

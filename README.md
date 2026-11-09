@@ -53,32 +53,45 @@ $$\mu_L(Q) = \frac{1}{A}\Sigma_L(x_0, y_0, x_1, y_1), \quad \sigma_L^2(Q) = \fra
 Using 64-bit IEEE-754 floats (`Float64Array`) for the summed-area tables eliminates catastrophic cancellation when computing $\mathbb{E}[L^2] - (\mathbb{E}[L])^2$ on high-resolution ($2\times$ Ultra-HD) canvases.
 
 ### 2. Two-Tier Render Memoization
-The 24 real-time parameters are partitioned into two execution tiers:
+The 25 real-time parameters are partitioned into two execution tiers:
 - **Tier 1 (Pigment & Grading — 8 parameters)**: `brushRadius`, `wetSmoothness`, `detailFidelity`, `colorSimplification`, `vibrancy`, `luminosity`, `contrast`, `warmth`. Modifying these updates `this.paintedRGB` (~20–35 ms at 1080p).
-- **Tier 2 (Wash Mask, Bleed, Splatters, Sketch & Paper — 16 parameters + Brush Strokes)**: Reuses `this.paintedRGB` via `this.lastPaintSignature` (`Cached` pass indicator in the top telemetry bar), completing frames in ~8–15 ms.
+- **Tier 2 (Wash Mask, Bleed, Splatters, Sketch & Paper — 17 parameters + Brush Strokes)**: Reuses `this.paintedRGB` via `this.lastPaintSignature` (`Cached` pass indicator in the top telemetry bar), completing frames in ~8–15 ms.
 
-### 3. Wet-Edge Pigment Pooling ("Water Rings") & Granulation
-To simulate capillary flow carrying pigment toward the drying perimeter of a watercolor wash (the coffee-ring effect), pixels within the boundary transition band $\alpha \in [0.08, 0.72]$ undergo sinusoidal rim darkening:
+### 3. Spatial Meniscus Wet-Edge Darkening, Glazing & Granulation
+To simulate capillary flow carrying pigment toward the drying perimeter of a watercolor wash (the coffee-ring effect), boundary-clamped central differences evaluate the spatial gradient $G = \|\nabla \alpha\|$ directly on `baseMask` using a precomputed static 256-entry sine LUT:
 
-$$D(\alpha) = 1 - k_{\text{ring}} \cdot \sin\left(\frac{\alpha - 0.08}{0.64}\,\pi\right)$$
+$$M(x, y) = \text{clamp}\left(\frac{G - 0.06}{0.28}, 0, 1\right) \cdot \text{sinLUT}[\text{round}(\alpha \cdot 255)]$$
 
-Simultaneously, cold-press paper heightfields modulate local pigment density (`pigmentGranulation`) and break mid-tone washes across paper peaks (`paperShowThrough`).
+When $M > 0$, pigment luminance is reduced while saturation is boosted by 15%. Simultaneously:
+- **Subtractive Midtone Glaze**: Models Beer-Lambert transmission absorption ($\mathbf{C}_{\text{glaze}} = (\mathbf{C}_{\text{paper}} \odot \mathbf{C}_{\text{fg}}) / 255$).
+- **Chromatic Granulation**: Settles pigment into cold-press paper valleys with cool mineral undertones ($+3.5\text{ B}, -2.0\text{ R}$).
+- **Procedural Torn-Paper Deckle Edge**: Uses a precomputed 1D perimeter profile in Stage 1 to modulate canvas alpha (`dst[p+3]`) along the border, preserving transparency for PNG exports.
 
-### 4. Boundary-Normal Vector Splatters & Gravity Drips
-Rather than overlaying static clip-art textures, `_renderSplattersAndDrips()` scans the wash transition zone ($0.12 < \alpha < 0.78$), computes outward spatial gradients $\vec{n} = -\nabla \alpha / \|\nabla \alpha\|$, samples local interior subject chromaticity from `bledColors`, and projects radial-gradient blooms, velocity-stretched elliptical droplets, and vertical gravity drips outward along $\vec{n}$.
+### 4. Boundary-Normal Vector Splatters, Satellite Droplets & Gravity Drips
+Rather than overlaying static clip-art textures, `_renderSplattersAndDrips()` scans the wash transition zone ($0.12 < \alpha < 0.78$), computes outward spatial gradients $\vec{n} = -\nabla \alpha / \|\nabla \alpha\|$, samples local interior subject chromaticity from `bledColors`, and projects:
+- **Harmonic Capillary Blooms**: 24-vertex polygon blooms with high-frequency capillary petal perturbations.
+- **Directional Satellite Spray**: Primary droplets project 1–3 trailing micro-droplets along their velocity vector.
+- **Tapered Fluid Gravity Drips**: Closed polygonal fluid contours that taper from origin to neck and pool into a bulbous teardrop head at the terminal point.
 
 ---
 
 ## Studio UX & Interactive Features
 
+- **Virtual Gallery Framing**: Preview artwork in the viewport inside *Natural Oak*, *Gallery Black*, or *White Float* frames with archival cotton mat boards and 45-degree beveled inner shadows via zero-overhead CSS containers.
+- **Print Studio & Archival 300 DPI Export**: Real-time sizing readouts in pixels, inches, and cm @ 300 DPI, multi-scale export (`1x Native`, `1.5x Fine Art`, `2x Ultra-HD`), format selection (lossless PNG, 98% / 92% JPEG), and optional procedural frame compositing for print downloads.
+- **Direct Clipboard Copy**: One-click high-resolution PNG copying directly to your system clipboard via `navigator.clipboard.write` with automatic graceful fallback to file download.
+- **Standard vs. Advanced View Modes**: Toggle between Standard View (15 essential sliders) and Advanced View (all 25 sliders) with zero layout shift or parameter loss.
+- **1-Click Smart Enhance (Magic Polish)**: Uniformly samples ~20,000 source pixels to analyze tonal dynamic range and saturation distribution, auto-tuning contrast, luminous glaze, and pigment vibrancy.
+- **Custom Preset Library**: Save custom parameter combinations to local browser storage (`localStorage`) with one-click style recall and deletion.
+- **Instant Clipboard Ingestion**: Press `Cmd/Ctrl + V` to paste photos directly from your clipboard without opening a file picker.
+- **Pointer-Drag Canvas Stage Panning**: Smoothly pan across the stage on mouse drag when `zoom > 1.0`, keeping `Spacebar` strictly reserved for "Hold to Peek".
 - **8 Curated Style Presets**: *Bespoke Portrait*, *Atmospheric Cloud*, *Line & Wash*, *Expressive Splash*, *Soft Pastel Glaze*, *Dry-Brush Atelier*, *Full-Bleed Scene*, and *Botanical Sepia*.
-- **24 Real-Time Parameters**: Grouped into 6 collapsible categories with live parameter search filtering, active slider progress fills, **double-click single-slider reset**, and **per-section Reset** actions.
+- **25 Real-Time Parameters**: Grouped into 6 collapsible categories with live parameter search filtering, active slider progress fills, **double-click single-slider reset**, and **per-section Reset** actions.
 - **25-Step Undo / Redo History Stack**: Full state snapshots (`Cmd/Ctrl + Z` and `Cmd/Ctrl + Shift + Z`) across slider adjustments, preset switches, seed re-rolls, and manual mask brush strokes.
 - **Curated Free-to-Use Unsplash Sample Gallery**: Ships with 4 CORS-enabled high-resolution Unsplash reference photographs (*Expressive Studio Portrait*, *Golden Retriever Outdoors*, *Coastal Surfer & Ocean Spray*, *Venetian Canal Architecture*) with photographer attribution and automatic offline procedural fallback.
 - **Smart Saliency + Optional MediaPipe Neural Segmentation**: Combines border-rejected foreground saliency with one-click client-side neural person segmentation.
 - **Interactive Mask Refinement Brush**: Paint directly on the canvas with **Reveal Paint** or **Dissolve Paper** (`[` and `]` to resize brush radius).
 - **4 Viewport Modes + Hold-to-Compare**: Switch between *Artwork* (`1`), *Split Compare* (`2`), *Original* (`3`), and *Alpha Mask* (`4`), or hold `Spacebar` at any time to peek at the unedited source photo.
-- **Multi-Scale Print Export**: Export `1x Native`, `1.5x Print`, or `2x Ultra-HD` PNGs with deterministic PRNG seed preservation.
 
 ---
 
@@ -88,6 +101,7 @@ Rather than overlaying static clip-art textures, `_renderSplattersAndDrips()` sc
 | :--- | :--- |
 | `1` / `2` / `3` / `4` | Switch View Mode (*Artwork*, *Split Compare*, *Original*, *Alpha Mask*) |
 | `Space` (Hold) | Temporarily peek at the original unedited photograph |
+| `⌘/Ctrl + V` | Paste image directly from system clipboard |
 | `[` / `]` | Decrease / increase interactive mask brush radius |
 | `R` | Re-roll deterministic PRNG splatter & wash seed |
 | `⌘/Ctrl + Z` | Undo last parameter or mask brush change |

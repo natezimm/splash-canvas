@@ -130,6 +130,13 @@
           <span class="btn-text">Re-Roll Seed</span>
         </button>
 
+        <button class="btn btn-secondary desktop-only-action btn-magic" id="smart-enhance-btn" title="1-Click Smart Enhance: Auto-tune contrast, vibrancy and glaze based on image tonal analysis">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/>
+          </svg>
+          <span class="btn-text">Smart<span class="hide-sm"> Enhance</span></span>
+        </button>
+
         <button class="btn btn-ghost desktop-only-action" id="reset-all-btn" title="Reset all parameters &amp; mask edits to the active preset defaults">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
@@ -159,13 +166,13 @@
               <path d="M2 3.75L5 6.75L8 3.75"/>
             </svg>
           </div>
-          <button class="btn btn-primary" id="export-btn">
+          <button class="btn btn-primary" id="export-btn" title="Open Print Studio &amp; Export dialog">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            <span class="btn-text">Export<span class="hide-sm"> PNG</span></span>
+            <span class="btn-text">Export<span class="hide-sm"> / Print</span></span>
           </button>
         </div>
       </div>
@@ -190,7 +197,10 @@
         <div class="panel-section" data-left-section="presets">
           <div class="section-header">
             <h2>Aquarelle Presets</h2>
-            <span class="badge">8 Styles</span>
+            <div class="section-header-actions">
+              <button type="button" class="btn-tiny" id="save-preset-btn" title="Save current parameters as a custom style">+ Save Style</button>
+              <span class="badge" id="preset-count-badge">8 Styles</span>
+            </div>
           </div>
           <p class="section-hint">Tap a preset below — watch the artwork update live above</p>
           <div class="preset-grid" id="preset-grid" role="radiogroup" aria-label="Watercolor style presets">
@@ -330,6 +340,23 @@
               🎲 <span id="mobile-seed-readout">#2026</span>
             </button>
 
+            <!-- Virtual Gallery Framing Select -->
+            <div class="select-wrap frame-select-wrap" title="Preview artwork in a virtual gallery frame">
+              <svg class="frame-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <rect x="7" y="7" width="10" height="10"/>
+              </svg>
+              <select id="frame-select" class="select-compact frame-select" aria-label="Select gallery frame preview">
+                <option value="none">No Frame</option>
+                <option value="oak">Natural Oak</option>
+                <option value="black">Gallery Black</option>
+                <option value="white">White Float</option>
+              </select>
+              <svg class="select-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 3.75L5 6.75L8 3.75"/>
+              </svg>
+            </div>
+
             <button class="btn-hold-compare" id="hold-compare-btn" title="Press and hold (or hold Spacebar) to peek at original photo">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -395,11 +422,11 @@
         </div>
       </main>
 
-      <!-- Right Sidebar: 24 Real-Time Effect Sliders with Category Pills, Filter & Section Reset -->
+      <!-- Right Sidebar: 25 Real-Time Effect Sliders with Category Pills, Filter & Section Reset -->
       <aside class="right-panel" id="right-panel" aria-label="Watercolor Effect Controls">
         <div class="mobile-panel-bar">
           <div class="mobile-drawer-grip" aria-hidden="true"></div>
-          <span class="mobile-panel-bar-title">Effect Sliders (24)</span>
+          <span class="mobile-panel-bar-title">Effect Sliders (25)</span>
           <div class="mobile-panel-bar-actions">
             <button type="button" class="btn-tiny" id="mobile-sliders-reset-btn" title="Reset all parameters to preset defaults">Reset All</button>
             <button type="button" class="btn btn-secondary btn-return-canvas" data-to-panel="center">
@@ -413,13 +440,14 @@
           <div class="sliders-header-top">
             <h2>Effect Parameters</h2>
             <div class="sliders-header-right">
-              <button class="btn-tiny" id="toggle-sections-btn" title="Collapse or expand all parameter groups">Collapse All</button>
+              <button type="button" class="btn-tiny" id="view-mode-toggle" title="Toggle between Standard (essential controls) and Advanced view">Advanced View</button>
+              <button type="button" class="btn-tiny" id="toggle-sections-btn" title="Collapse or expand all parameter groups">Collapse All</button>
             </div>
           </div>
 
           <!-- Quick Category Jump / Filter Pills (Fast 1-tap group switching on Mobile & Desktop) -->
           <div class="category-pills" id="category-pills" role="tablist" aria-label="Parameter categories">
-            <button type="button" class="cat-pill active" data-cat="all">All (24)</button>
+            <button type="button" class="cat-pill active" data-cat="all">All (25)</button>
             <button type="button" class="cat-pill" data-cat="brush"><span class="cat-dot" style="background:#38bdf8"></span>Brush</button>
             <button type="button" class="cat-pill" data-cat="wash"><span class="cat-dot" style="background:#818cf8"></span>Wash</button>
             <button type="button" class="cat-pill" data-cat="splatter"><span class="cat-dot" style="background:#f472b6"></span>Splatter</button>
@@ -432,7 +460,7 @@
             <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input type="search" id="param-search-input" class="param-search-input" placeholder="Search 24 sliders (e.g. drip, ring, grain)..." aria-label="Filter effect parameters" />
+            <input type="search" id="param-search-input" class="param-search-input" placeholder="Search 25 sliders (e.g. drip, ring, grain)..." aria-label="Filter effect parameters" />
           </div>
         </div>
 
@@ -471,7 +499,7 @@
                 <input type="range" id="Ctrl-detailFidelity" data-param="detailFidelity" data-group="brush" min="0" max="100" step="1" value="72" />
               </div>
 
-              <div class="control-row" data-label="pigment palette quantization simplification posterize">
+              <div class="control-row advanced" data-label="pigment palette quantization simplification posterize">
                 <div class="control-label">
                   <label for="Ctrl-colorSimplification">Pigment Palette Simplification</label>
                   <span class="val" id="val-colorSimplification">18%</span>
@@ -479,7 +507,7 @@
                 <input type="range" id="Ctrl-colorSimplification" data-param="colorSimplification" data-group="brush" min="0" max="100" step="1" value="18" />
               </div>
 
-              <div class="control-row" data-label="pigment granulation bloom settling">
+              <div class="control-row advanced" data-label="pigment granulation bloom settling">
                 <div class="control-label">
                   <label for="Ctrl-pigmentGranulation">Pigment Granulation &amp; Settling</label>
                   <span class="val" id="val-pigmentGranulation">35%</span>
@@ -515,7 +543,7 @@
                 <input type="range" id="Ctrl-washSpread" data-param="washSpread" data-group="wash" min="0" max="100" step="1" value="65" />
               </div>
 
-              <div class="control-row" data-label="organic brush edge roughness fbm noise">
+              <div class="control-row advanced" data-label="organic brush edge roughness fbm noise">
                 <div class="control-label">
                   <label for="Ctrl-edgeRoughness">Organic Brush Edge Roughness</label>
                   <span class="val" id="val-edgeRoughness">74%</span>
@@ -523,7 +551,7 @@
                 <input type="range" id="Ctrl-edgeRoughness" data-param="edgeRoughness" data-group="wash" min="0" max="100" step="1" value="74" />
               </div>
 
-              <div class="control-row" data-label="wash edge feathering softness transition">
+              <div class="control-row advanced" data-label="wash edge feathering softness transition">
                 <div class="control-label">
                   <label for="Ctrl-edgeSoftness">Wash Edge Feathering</label>
                   <span class="val" id="val-edgeSoftness">52%</span>
@@ -559,7 +587,7 @@
                 <input type="range" id="Ctrl-splatterAmount" data-param="splatterAmount" data-group="splatter" min="0" max="100" step="1" value="72" />
               </div>
 
-              <div class="control-row" data-label="splatter bloom scale radius size">
+              <div class="control-row advanced" data-label="splatter bloom scale radius size">
                 <div class="control-label">
                   <label for="Ctrl-splatterSize">Splatter &amp; Bloom Scale</label>
                   <span class="val" id="val-splatterSize">55%</span>
@@ -567,7 +595,7 @@
                 <input type="range" id="Ctrl-splatterSize" data-param="splatterSize" data-group="splatter" min="10" max="100" step="1" value="55" />
               </div>
 
-              <div class="control-row" data-label="outward splatter reach distance">
+              <div class="control-row advanced" data-label="outward splatter reach distance">
                 <div class="control-label">
                   <label for="Ctrl-splatterReach">Outward Splatter Reach</label>
                   <span class="val" id="val-splatterReach">68%</span>
@@ -611,7 +639,7 @@
                 <input type="range" id="Ctrl-sketchIntensity" data-param="sketchIntensity" data-group="sketch" min="0" max="100" step="1" value="26" />
               </div>
 
-              <div class="control-row" data-label="fine edge sensitivity sobel threshold">
+              <div class="control-row advanced" data-label="fine edge sensitivity sobel threshold">
                 <div class="control-label">
                   <label for="Ctrl-sketchDetail">Contour Edge Sensitivity</label>
                   <span class="val" id="val-sketchDetail">62%</span>
@@ -619,7 +647,7 @@
                 <input type="range" id="Ctrl-sketchDetail" data-param="sketchDetail" data-group="sketch" min="10" max="100" step="1" value="62" />
               </div>
 
-              <div class="control-row" data-label="sepia vs graphite ink tone warmth">
+              <div class="control-row advanced" data-label="sepia vs graphite ink tone warmth">
                 <div class="control-label">
                   <label for="Ctrl-sketchWarmth">Sepia vs. Graphite Ink Tone</label>
                   <span class="val" id="val-sketchWarmth">35%</span>
@@ -647,7 +675,7 @@
                 <input type="range" id="Ctrl-paperGrain" data-param="paperGrain" data-group="paper" min="0" max="100" step="1" value="58" />
               </div>
 
-              <div class="control-row" data-label="outer grey watercolor clouds atmosphere">
+              <div class="control-row advanced" data-label="outer grey watercolor clouds atmosphere">
                 <div class="control-label">
                   <label for="Ctrl-outerCloudWash">Atmospheric Outer Cloud Wash</label>
                   <span class="val" id="val-outerCloudWash">15%</span>
@@ -655,12 +683,20 @@
                 <input type="range" id="Ctrl-outerCloudWash" data-param="outerCloudWash" data-group="paper" min="0" max="100" step="1" value="15" />
               </div>
 
-              <div class="control-row" data-label="white paper dry brush gaps show through">
+              <div class="control-row advanced" data-label="white paper dry brush gaps show through">
                 <div class="control-label">
                   <label for="Ctrl-paperShowThrough">Dry-Brush Paper Show-Through</label>
                   <span class="val" id="val-paperShowThrough">22%</span>
                 </div>
                 <input type="range" id="Ctrl-paperShowThrough" data-param="paperShowThrough" data-group="paper" min="0" max="100" step="1" value="22" />
+              </div>
+
+              <div class="control-row" data-label="deckle torn paper border edge archival fibrous handmade">
+                <div class="control-label">
+                  <label for="Ctrl-deckleEdge">Torn-Paper Deckle Edge</label>
+                  <span class="val" id="val-deckleEdge">45%</span>
+                </div>
+                <input type="range" id="Ctrl-deckleEdge" data-param="deckleEdge" data-group="paper" min="0" max="100" step="1" value="45" />
               </div>
             </div>
           </details>
@@ -742,7 +778,7 @@
         <span>Cutout &amp; Brush</span>
       </button>
 
-      <button type="button" class="mobile-tab-btn" data-panel="right" aria-label="24 Real-Time Effect Sliders">
+      <button type="button" class="mobile-tab-btn" data-panel="right" aria-label="25 Real-Time Effect Sliders">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="4" y1="21" x2="4" y2="14"/>
           <line x1="4" y1="10" x2="4" y2="3"/>
@@ -754,9 +790,121 @@
           <line x1="9" y1="8" x2="15" y2="8"/>
           <line x1="17" y1="16" x2="23" y2="16"/>
         </svg>
-        <span>Sliders (24)</span>
+        <span>Sliders (25)</span>
       </button>
     </nav>
+
+    <!-- Save Custom Preset Modal -->
+    <div class="modal-backdrop hidden" id="save-preset-modal" role="dialog" aria-modal="true" aria-labelledby="save-preset-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="save-preset-title">Save Custom Preset</h3>
+          <button class="btn-icon" id="close-save-preset-btn" aria-label="Close modal">✕</button>
+        </div>
+        <form id="save-preset-form">
+          <p class="modal-desc">Save your current watercolor parameters, paper stock tone, and cutout mode to your local browser library.</p>
+          <div class="form-group">
+            <label for="custom-preset-name-input">Preset Style Name</label>
+            <input type="text" id="custom-preset-name-input" class="text-input" placeholder="e.g. Dreamy Coastal Sunset" maxlength="32" autocomplete="off" required />
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="cancel-save-preset-btn">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="confirm-save-preset-btn">Save Preset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Export / Print Studio Modal -->
+    <div class="modal-backdrop hidden" id="export-modal" role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
+      <div class="modal-card export-modal-card">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <h3 id="export-modal-title">Print Studio &amp; Export</h3>
+            <span class="badge">Fine Art Quality</span>
+          </div>
+          <button class="btn-icon" id="close-export-modal-btn" aria-label="Close export dialog">✕</button>
+        </div>
+
+        <div class="export-modal-body">
+          <!-- Print Dimension Readout Card -->
+          <div class="export-dimension-card">
+            <div class="dimension-icon-wrap" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <polyline points="3 9 9 9 9 3"/>
+                <line x1="9" y1="9" x2="3" y2="3"/>
+              </svg>
+            </div>
+            <div class="dimension-details">
+              <div class="dimension-title" id="export-res-pixels">1080 × 1350 px</div>
+              <div class="dimension-subtitle" id="export-res-print">3.6″ × 4.5″ (9.1 × 11.4 cm) @ 300 DPI Archival</div>
+            </div>
+          </div>
+
+          <!-- Export Options Grid -->
+          <div class="export-options-grid">
+            <div class="form-group">
+              <label for="export-scale-select">Resolution Multiplier</label>
+              <div class="select-wrap select-block">
+                <select id="export-scale-select" class="select-full">
+                  <option value="1">1x Native Preview (1080p Web)</option>
+                  <option value="1.5">1.5x Fine Art (High Quality Print)</option>
+                  <option value="2">2x Ultra-HD Archival (Gallery 4K)</option>
+                </select>
+                <svg class="select-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 3.75L5 6.75L8 3.75"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="export-format-select">Image Format</label>
+              <div class="select-wrap select-block">
+                <select id="export-format-select" class="select-full">
+                  <option value="image/png">PNG — Lossless Transparent</option>
+                  <option value="image/jpeg;0.98">JPEG — Maximum Quality (98%)</option>
+                  <option value="image/jpeg;0.92">JPEG — Standard Print (92%)</option>
+                </select>
+                <svg class="select-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 3.75L5 6.75L8 3.75"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Include Gallery Frame Option -->
+          <div class="export-frame-option">
+            <label class="checkbox-label" for="export-include-frame">
+              <input type="checkbox" id="export-include-frame" />
+              <span class="checkbox-custom"></span>
+              <div class="checkbox-text">
+                <strong>Include Gallery Frame in Export</strong>
+                <span id="export-frame-desc">Bakes natural oak moulding and bevel mat into image file</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-actions export-modal-actions">
+          <button type="button" class="btn btn-secondary" id="copy-clipboard-btn" title="Copy high-res artwork directly to clipboard">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            <span>Copy to Clipboard</span>
+          </button>
+          <button type="button" class="btn btn-primary" id="do-download-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span>Download Artwork</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Keyboard Shortcuts Modal -->
     <div class="modal-backdrop hidden" id="shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
@@ -767,6 +915,7 @@
         </div>
         <div class="shortcut-list">
           <div class="shortcut-item"><span>Switch View Mode (Artwork / Split / Original / Mask)</span><div><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></div></div>
+          <div class="shortcut-item"><span>Paste Image from Clipboard</span><div><kbd>⌘/Ctrl</kbd> + <kbd>V</kbd></div></div>
           <div class="shortcut-item"><span>Hold to Peek Original Photograph</span><div><kbd>Space</kbd></div></div>
           <div class="shortcut-item"><span>Decrease / Increase Mask Brush Radius</span><div><kbd>[</kbd> <kbd>]</kbd></div></div>
           <div class="shortcut-item"><span>Re-Roll Deterministic Splatter Seed</span><div><kbd>R</kbd></div></div>

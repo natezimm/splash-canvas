@@ -73,6 +73,7 @@ const PRESETS = Object.freeze([
       washSpread: 65,
       edgeRoughness: 74,
       edgeSoftness: 52,
+      deckleEdge: 45,
       waterRingIntensity: 55,
       splatterAmount: 72,
       splatterSize: 55,
@@ -108,6 +109,7 @@ const PRESETS = Object.freeze([
       washSpread: 68,
       edgeRoughness: 78,
       edgeSoftness: 58,
+      deckleEdge: 50,
       waterRingIntensity: 62,
       splatterAmount: 75,
       splatterSize: 60,
@@ -143,6 +145,7 @@ const PRESETS = Object.freeze([
       washSpread: 55,
       edgeRoughness: 68,
       edgeSoftness: 45,
+      deckleEdge: 40,
       waterRingIntensity: 68,
       splatterAmount: 55,
       splatterSize: 45,
@@ -178,6 +181,7 @@ const PRESETS = Object.freeze([
       washSpread: 82,
       edgeRoughness: 92,
       edgeSoftness: 48,
+      deckleEdge: 65,
       waterRingIntensity: 75,
       splatterAmount: 98,
       splatterSize: 78,
@@ -213,6 +217,7 @@ const PRESETS = Object.freeze([
       washSpread: 74,
       edgeRoughness: 64,
       edgeSoftness: 78,
+      deckleEdge: 55,
       waterRingIntensity: 30,
       splatterAmount: 42,
       splatterSize: 50,
@@ -248,6 +253,7 @@ const PRESETS = Object.freeze([
       washSpread: 50,
       edgeRoughness: 88,
       edgeSoftness: 32,
+      deckleEdge: 70,
       waterRingIntensity: 80,
       splatterAmount: 48,
       splatterSize: 42,
@@ -283,6 +289,7 @@ const PRESETS = Object.freeze([
       washSpread: 40,
       edgeRoughness: 65,
       edgeSoftness: 45,
+      deckleEdge: 35,
       waterRingIntensity: 45,
       splatterAmount: 30,
       splatterSize: 45,
@@ -318,6 +325,7 @@ const PRESETS = Object.freeze([
       washSpread: 62,
       edgeRoughness: 70,
       edgeSoftness: 55,
+      deckleEdge: 60,
       waterRingIntensity: 72,
       splatterAmount: 58,
       splatterSize: 48,
@@ -400,12 +408,17 @@ class SplashCanvasApp {
     this.history = new HistoryManager(25);
     this.currentPresetId = PRESETS[0].id;
     this.params = { ...PRESETS[0].params };
+    this.controlView = localStorage.getItem("splashcanvas_control_view") || "standard";
+    this.customPresets = this._loadCustomPresets();
     this.viewMode = "result"; // 'result' | 'split' | 'original' | 'mask'
     this.isPeekingOriginal = false;
     this.brushMode = "none";  // 'none' | 'restore' | 'erase'
     this.brushSize = 65;
     this.brushSoftness = 75;
     this.zoom = 1.0;
+    this.panX = 0;
+    this.panY = 0;
+    this.currentFrame = "none"; // 'none' | 'oak' | 'black' | 'white'
     this.splitPos = 0.5;
     this.currentImageElement = null;
     this.currentSampleId = "portrait";
@@ -413,6 +426,7 @@ class SplashCanvasApp {
     this._sliderPreDragState = null;
 
     this._cacheDOM();
+    this.setControlView(this.controlView);
     this._buildPresetCards();
     this._bindEvents();
     this._syncUIFromParams();
@@ -427,6 +441,7 @@ class SplashCanvasApp {
     this.canvasContainer = document.getElementById("canvas-container");
     this.canvasViewport = document.getElementById("canvas-viewport");
     this.presetGrid = document.getElementById("preset-grid");
+    this.presetCountBadge = document.getElementById("preset-count-badge");
     this.renderTimeLabel = document.getElementById("render-time-label");
     this.statusDot = document.getElementById("status-dot");
     this.seedReadout = document.getElementById("seed-readout");
@@ -443,11 +458,34 @@ class SplashCanvasApp {
     this.undoBtn = document.getElementById("undo-btn");
     this.redoBtn = document.getElementById("redo-btn");
     this.holdCompareBtn = document.getElementById("hold-compare-btn");
+    this.smartEnhanceBtn = document.getElementById("smart-enhance-btn");
+    this.viewModeToggleBtn = document.getElementById("view-mode-toggle");
+    this.savePresetBtn = document.getElementById("save-preset-btn");
+    this.savePresetModal = document.getElementById("save-preset-modal");
+    this.savePresetForm = document.getElementById("save-preset-form");
+    this.customPresetNameInput = document.getElementById("custom-preset-name-input");
+    this.closeSavePresetBtn = document.getElementById("close-save-preset-btn");
+    this.cancelSavePresetBtn = document.getElementById("cancel-save-preset-btn");
     this.paramSearchInput = document.getElementById("param-search-input");
     this.shortcutsModal = document.getElementById("shortcuts-modal");
     this.toastContainer = document.getElementById("toast-container");
     this.workspace = document.getElementById("workspace");
     this.leftDrawerTitle = document.getElementById("left-drawer-title");
+
+    // Milestone 3: Gallery Framing & Print Studio
+    this.frameSelect = document.getElementById("frame-select");
+    this.exportBtn = document.getElementById("export-btn");
+    this.exportScale = document.getElementById("export-scale");
+    this.exportModal = document.getElementById("export-modal");
+    this.closeExportModalBtn = document.getElementById("close-export-modal-btn");
+    this.exportScaleSelect = document.getElementById("export-scale-select");
+    this.exportFormatSelect = document.getElementById("export-format-select");
+    this.exportIncludeFrame = document.getElementById("export-include-frame");
+    this.exportFrameDesc = document.getElementById("export-frame-desc");
+    this.exportResPixels = document.getElementById("export-res-pixels");
+    this.exportResPrint = document.getElementById("export-res-print");
+    this.copyClipboardBtn = document.getElementById("copy-clipboard-btn");
+    this.doDownloadBtn = document.getElementById("do-download-btn");
   }
 
   /**
@@ -480,14 +518,109 @@ class SplashCanvasApp {
     this.scheduleRender();
   }
 
+  _loadCustomPresets() {
+    try {
+      const saved = localStorage.getItem("splashcanvas_custom_presets");
+      return saved ? JSON.parse(saved) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  _saveCustomPresets() {
+    try {
+      localStorage.setItem(
+        "splashcanvas_custom_presets",
+        JSON.stringify(this.customPresets)
+      );
+    } catch (_) {}
+  }
+
+  getAllPresets() {
+    return [...PRESETS, ...this.customPresets];
+  }
+
+  saveCustomPreset(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return;
+    const newPreset = {
+      id: `custom-${Date.now()}`,
+      name: trimmed,
+      desc: "Custom User Style",
+      isCustom: true,
+      swatches: [this.params.paperTint || "#f6f5f0", "#38bdf8", "#818cf8"],
+      params: { ...this.params },
+    };
+    this.customPresets.push(newPreset);
+    this._saveCustomPresets();
+    this.currentPresetId = newPreset.id;
+    this._buildPresetCards();
+    this.showToast(`Saved custom preset "${trimmed}"`);
+  }
+
+  deleteCustomPreset(id) {
+    const found = this.customPresets.find((p) => p.id === id);
+    const name = found ? found.name : "Custom";
+    this.customPresets = this.customPresets.filter((p) => p.id !== id);
+    this._saveCustomPresets();
+    if (this.currentPresetId === id) {
+      this.currentPresetId = PRESETS[0].id;
+      this.applyPreset(PRESETS[0].id);
+    } else {
+      this._buildPresetCards();
+    }
+    this.showToast(`Deleted preset "${name}"`);
+  }
+
+  setControlView(mode) {
+    this.controlView = mode === "advanced" ? "advanced" : "standard";
+    try {
+      localStorage.setItem("splashcanvas_control_view", this.controlView);
+    } catch (_) {}
+
+    document.body.classList.toggle("mode-standard", this.controlView === "standard");
+    document.body.classList.toggle("mode-advanced", this.controlView === "advanced");
+
+    if (this.viewModeToggleBtn) {
+      this.viewModeToggleBtn.textContent =
+        this.controlView === "standard" ? "Advanced View" : "Standard View";
+      this.viewModeToggleBtn.title =
+        this.controlView === "standard"
+          ? "Switch to Advanced View (all 25 parameters)"
+          : "Switch to Standard View (15 essential parameters)";
+    }
+
+    const allPill = document.querySelector('.cat-pill[data-cat="all"]');
+    if (allPill) {
+      allPill.textContent =
+        this.controlView === "standard" ? "All (15)" : "All (25)";
+    }
+  }
+
+  toggleControlView() {
+    this.setControlView(
+      this.controlView === "standard" ? "advanced" : "standard"
+    );
+    this.showToast(
+      this.controlView === "standard"
+        ? "Switched to Standard View (15 core sliders)"
+        : "Switched to Advanced View (all 25 sliders)"
+    );
+  }
+
   _buildPresetCards() {
     this.presetGrid.innerHTML = "";
-    PRESETS.forEach((preset) => {
+    const allPresets = this.getAllPresets();
+    if (this.presetCountBadge) {
+      this.presetCountBadge.textContent = `${allPresets.length} Styles`;
+    }
+
+    allPresets.forEach((preset) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = `preset-card ${
         preset.id === this.currentPresetId ? "active" : ""
-      }`;
+      } ${preset.isCustom ? "custom-preset" : ""}`;
       btn.dataset.presetId = preset.id;
       const dotsHtml = (preset.swatches || [])
         .map(
@@ -502,6 +635,20 @@ class SplashCanvasApp {
         </div>
         <div class="preset-desc">${preset.desc}</div>
       `;
+
+      if (preset.isCustom) {
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "preset-delete-btn";
+        delBtn.title = `Delete "${preset.name}" preset`;
+        delBtn.innerHTML = "✕";
+        delBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.deleteCustomPreset(preset.id);
+        });
+        btn.appendChild(delBtn);
+      }
+
       btn.addEventListener("click", () => {
         this._recordHistorySnapshot();
         this.applyPreset(preset.id);
@@ -575,7 +722,7 @@ class SplashCanvasApp {
   }
 
   applyPreset(presetId) {
-    const found = PRESETS.find((p) => p.id === presetId);
+    const found = this.getAllPresets().find((p) => p.id === presetId);
     if (!found) return;
     this.currentPresetId = found.id;
     this.params = { ...found.params };
@@ -662,7 +809,8 @@ class SplashCanvasApp {
    */
   resetSingleParameter(paramKey) {
     const activePreset =
-      PRESETS.find((p) => p.id === this.currentPresetId) || PRESETS[0];
+      this.getAllPresets().find((p) => p.id === this.currentPresetId) ||
+      PRESETS[0];
     if (activePreset.params[paramKey] === undefined) return;
     const defaultVal = activePreset.params[paramKey];
     if (this.params[paramKey] === defaultVal) return;
@@ -680,7 +828,8 @@ class SplashCanvasApp {
    */
   resetParameterGroup(groupName) {
     const activePreset =
-      PRESETS.find((p) => p.id === this.currentPresetId) || PRESETS[0];
+      this.getAllPresets().find((p) => p.id === this.currentPresetId) ||
+      PRESETS[0];
     const groupInputs = document.querySelectorAll(
       `input[data-param][data-group="${groupName}"]`
     );
@@ -757,6 +906,7 @@ class SplashCanvasApp {
         });
         if (this.paramSearchInput && this.paramSearchInput.value) {
           this.paramSearchInput.value = "";
+          document.body.classList.remove("is-searching");
         }
         document.querySelectorAll(".control-group").forEach((group) => {
           group.querySelectorAll(".control-row").forEach((r) => {
@@ -777,6 +927,7 @@ class SplashCanvasApp {
     if (this.paramSearchInput) {
       this.paramSearchInput.addEventListener("input", (e) => {
         const q = e.target.value.trim().toLowerCase();
+        document.body.classList.toggle("is-searching", Boolean(q));
         if (q) {
           document.querySelectorAll(".cat-pill").forEach((p) => {
             p.classList.toggle("active", p.dataset.cat === "all");
@@ -865,6 +1016,7 @@ class SplashCanvasApp {
         if (this.brushMode === "none") {
           this.brushCursor.classList.add("hidden");
         }
+        this._updatePanCursor();
       });
     });
 
@@ -941,6 +1093,50 @@ class SplashCanvasApp {
     this.canvasContainer.addEventListener("pointerleave", () => {
       if (!isPainting) this.brushCursor.classList.add("hidden");
     });
+
+    // Pointer-Drag Canvas Panning when zoom > 1.0 and brushMode === 'none'
+    let isPanning = false;
+    let panStartX = 0;
+    let panStartY = 0;
+
+    const startPan = (e) => {
+      if (this.zoom <= 1.0 || this.brushMode !== "none") return;
+      if (
+        e.target.closest("#split-slider") ||
+        e.target.closest(".viewport-footer") ||
+        e.target.closest(".brush-cursor")
+      ) {
+        return;
+      }
+      isPanning = true;
+      panStartX = e.clientX - this.panX;
+      panStartY = e.clientY - this.panY;
+      this.canvasViewport.classList.add("is-panning");
+      try {
+        this.canvasViewport.setPointerCapture(e.pointerId);
+      } catch (_) {}
+    };
+
+    const doPan = (e) => {
+      if (!isPanning) return;
+      this.panX = e.clientX - panStartX;
+      this.panY = e.clientY - panStartY;
+      this._updateCanvasTransform();
+    };
+
+    const stopPan = (e) => {
+      if (!isPanning) return;
+      isPanning = false;
+      this.canvasViewport.classList.remove("is-panning");
+      try {
+        this.canvasViewport.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+    };
+
+    this.canvasViewport.addEventListener("pointerdown", startPan);
+    this.canvasViewport.addEventListener("pointermove", doPan);
+    this.canvasViewport.addEventListener("pointerup", stopPan);
+    this.canvasViewport.addEventListener("pointercancel", stopPan);
 
     // Split Comparison Slider Dragging (with touch pointer capture)
     let isDraggingSplit = false;
@@ -1094,11 +1290,149 @@ class SplashCanvasApp {
     }
 
     document.getElementById("export-btn").addEventListener("click", () => {
-      this.exportArtwork();
+      this.openExportModal();
     });
+
+    // Gallery Frame Selection
+    if (this.frameSelect) {
+      this.frameSelect.addEventListener("change", (e) => {
+        this.setFrame(e.target.value);
+      });
+    }
+
+    // Export / Print Studio Modal wiring
+    if (this.closeExportModalBtn) {
+      this.closeExportModalBtn.addEventListener("click", () => {
+        this.closeExportModal();
+      });
+    }
+
+    if (this.exportModal) {
+      this.exportModal.addEventListener("click", (e) => {
+        if (e.target === this.exportModal) {
+          this.closeExportModal();
+        }
+      });
+    }
+
+    if (this.exportScaleSelect) {
+      this.exportScaleSelect.addEventListener("change", () => {
+        if (this.exportScale) {
+          this.exportScale.value = this.exportScaleSelect.value;
+        }
+        this._updateExportReadout();
+      });
+    }
+
+    if (this.exportScale) {
+      this.exportScale.addEventListener("change", () => {
+        if (this.exportScaleSelect) {
+          this.exportScaleSelect.value = this.exportScale.value;
+        }
+        this._updateExportReadout();
+      });
+    }
+
+    if (this.exportIncludeFrame) {
+      this.exportIncludeFrame.addEventListener("change", () => {
+        this._updateExportReadout();
+      });
+    }
+
+    if (this.doDownloadBtn) {
+      this.doDownloadBtn.addEventListener("click", () => {
+        this.executeExport("download");
+      });
+    }
+
+    if (this.copyClipboardBtn) {
+      this.copyClipboardBtn.addEventListener("click", () => {
+        this.executeExport("clipboard");
+      });
+    }
 
     document.getElementById("ai-cutout-btn").addEventListener("click", () => {
       this.runMediaPipeCutout();
+    });
+
+    // 1-Click Smart Enhance
+    if (this.smartEnhanceBtn) {
+      this.smartEnhanceBtn.addEventListener("click", () => {
+        this.smartEnhance();
+      });
+    }
+
+    // View Mode Toggle (Standard vs Advanced)
+    if (this.viewModeToggleBtn) {
+      this.viewModeToggleBtn.addEventListener("click", () => {
+        this.toggleControlView();
+      });
+    }
+
+    // Save Custom Preset Modal wiring
+    if (this.savePresetBtn && this.savePresetModal) {
+      this.savePresetBtn.addEventListener("click", () => {
+        this.savePresetModal.classList.remove("hidden");
+        if (this.customPresetNameInput) {
+          this.customPresetNameInput.value = "";
+          setTimeout(() => this.customPresetNameInput.focus(), 50);
+        }
+      });
+
+      const closeSaveModal = () => {
+        this.savePresetModal.classList.add("hidden");
+      };
+
+      if (this.closeSavePresetBtn) {
+        this.closeSavePresetBtn.addEventListener("click", closeSaveModal);
+      }
+      if (this.cancelSavePresetBtn) {
+        this.cancelSavePresetBtn.addEventListener("click", closeSaveModal);
+      }
+      this.savePresetModal.addEventListener("click", (e) => {
+        if (e.target === this.savePresetModal) closeSaveModal();
+      });
+
+      if (this.savePresetForm) {
+        this.savePresetForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const name = this.customPresetNameInput
+            ? this.customPresetNameInput.value
+            : "";
+          if (name) {
+            this.saveCustomPreset(name);
+            closeSaveModal();
+          }
+        });
+      }
+    }
+
+    // Clipboard Paste Ingestion (Cmd/Ctrl+V)
+    window.addEventListener("paste", (e) => {
+      const activeTag = document.activeElement
+        ? document.activeElement.tagName
+        : "";
+      if (
+        ["INPUT", "TEXTAREA"].includes(activeTag) ||
+        document.activeElement?.isContentEditable
+      ) {
+        return;
+      }
+
+      const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type && item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            this.loadUserFile(file);
+            this.showToast("Loaded image from clipboard (Cmd/Ctrl+V)");
+            return;
+          }
+        }
+      }
     });
 
     // Collapse / Expand All right-hand sections button
@@ -1204,6 +1538,10 @@ class SplashCanvasApp {
         if (this.shortcutsModal) {
           this.shortcutsModal.classList.add("hidden");
         }
+        if (this.savePresetModal) {
+          this.savePresetModal.classList.add("hidden");
+        }
+        this.closeExportModal();
       }
     });
 
@@ -1225,11 +1563,108 @@ class SplashCanvasApp {
     this.scheduleRender();
   }
 
+  _updateCanvasTransform() {
+    this.canvasContainer.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
+  }
+
+  _updatePanCursor() {
+    if (!this.canvasViewport) return;
+    const canPan = this.zoom > 1.0 && this.brushMode === "none";
+    this.canvasViewport.classList.toggle("can-pan", canPan);
+  }
+
   setZoom(z) {
     this.zoom = z;
-    this.canvasContainer.style.transform = `scale(${z})`;
+    if (z <= 1.0) {
+      this.panX = 0;
+      this.panY = 0;
+    }
+    this._updateCanvasTransform();
     document.getElementById("zoom-label").textContent =
       Math.abs(z - 1.0) < 0.05 ? "Fit" : `${Math.round(z * 100)}%`;
+    this._updatePanCursor();
+  }
+
+  /**
+   * 1-Click Smart Enhance: Analyzes the source photograph's dynamic range,
+   * luminance, and saturation distribution to auto-tune vibrancy, tonal contrast,
+   * and luminous glaze.
+   */
+  smartEnhance() {
+    if (!this.engine.srcData || !this.engine.width || !this.engine.height) return;
+    this._recordHistorySnapshot();
+
+    const w = this.engine.width;
+    const h = this.engine.height;
+    const total = w * h;
+    const src = this.engine.srcData;
+
+    // Sample ~20,000 pixels with uniform stride
+    const step = Math.max(1, Math.floor(total / 20000));
+    let sumL = 0;
+    let sumSat = 0;
+    let minL = 255;
+    let maxL = 0;
+    let count = 0;
+
+    for (let i = 0; i < total; i += step) {
+      const p = i * 4;
+      const r = src[p];
+      const g = src[p + 1];
+      const b = src[p + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      sumL += lum;
+      if (lum < minL) minL = lum;
+      if (lum > maxL) maxL = lum;
+
+      const maxC = Math.max(r, g, b);
+      const minC = Math.min(r, g, b);
+      const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+      sumSat += sat;
+      count++;
+    }
+
+    const avgL = sumL / count;
+    const avgSat = sumSat / count;
+    const dynRange = maxL - minL;
+
+    // 1. Tonal Contrast: boost if dynRange is narrow (< 150), settle if high (> 220)
+    let contrastTarget = 14;
+    if (dynRange < 150) {
+      contrastTarget = 26;
+    } else if (dynRange < 190) {
+      contrastTarget = 20;
+    } else if (dynRange > 230) {
+      contrastTarget = 10;
+    }
+
+    // 2. Luminous Glaze: if dark overall, add luminosity; if already very bright, pull down
+    let lumTarget = 16;
+    if (avgL < 90) {
+      lumTarget = 24;
+    } else if (avgL < 125) {
+      lumTarget = 18;
+    } else if (avgL > 180) {
+      lumTarget = 4;
+    }
+
+    // 3. Vibrancy: if muted/dull, boost; if already saturated, moderate boost
+    let vibTarget = 30;
+    if (avgSat < 0.22) {
+      vibTarget = 45;
+    } else if (avgSat < 0.38) {
+      vibTarget = 34;
+    } else if (avgSat > 0.60) {
+      vibTarget = 18;
+    }
+
+    this.params.contrast = contrastTarget;
+    this.params.luminosity = lumTarget;
+    this.params.vibrancy = vibTarget;
+
+    this._syncUIFromParams();
+    this.scheduleRender();
+    this.showToast("Smart Enhance: Calibrated contrast, glaze & vibrancy");
   }
 
   _updateViewModeUI() {
@@ -1416,15 +1851,171 @@ class SplashCanvasApp {
   }
 
   /**
-   * Exports high-resolution PNG artwork (`1x`, `1.5x`, or `2x`).
+   * Sets the active gallery frame style ('none', 'oak', 'black', 'white').
+   * @param {"none"|"oak"|"black"|"white"} frameId
+   */
+  setFrame(frameId) {
+    this.currentFrame = frameId || "none";
+    if (this.canvasContainer) {
+      this.canvasContainer.classList.remove(
+        "frame-oak",
+        "frame-black",
+        "frame-white"
+      );
+      if (this.currentFrame !== "none") {
+        this.canvasContainer.classList.add(`frame-${this.currentFrame}`);
+      }
+    }
+    if (this.frameSelect) {
+      this.frameSelect.value = this.currentFrame;
+    }
+    if (this.exportIncludeFrame) {
+      const hasFrame = this.currentFrame !== "none";
+      this.exportIncludeFrame.disabled = !hasFrame;
+      this.exportIncludeFrame.checked = hasFrame;
+      if (this.exportFrameDesc) {
+        const frameNames = {
+          oak: "natural oak moulding and bevel mat",
+          black: "gallery black moulding and bevel mat",
+          white: "floating white moulding and bevel mat",
+        };
+        this.exportFrameDesc.textContent = hasFrame
+          ? `Bakes ${frameNames[this.currentFrame]} into image file`
+          : "Select a gallery frame on the stage to enable frame export";
+      }
+    }
+    this._updateExportReadout();
+
+    const frameTitles = {
+      none: "Raw Canvas",
+      oak: "Natural Oak",
+      black: "Gallery Black",
+      white: "White Float",
+    };
+    if (this.currentFrame === "none") {
+      this.showToast("Removed gallery frame");
+    } else {
+      this.showToast(`Applied ${frameTitles[this.currentFrame]} gallery frame`);
+    }
+  }
+
+  /**
+   * Opens the Print Studio & Export dialog.
+   */
+  openExportModal() {
+    if (!this.exportModal) return;
+    this.exportModal.classList.remove("hidden");
+    if (this.exportScaleSelect && this.exportScale) {
+      this.exportScaleSelect.value = this.exportScale.value;
+    }
+    this._updateExportReadout();
+  }
+
+  /**
+   * Closes the Print Studio & Export dialog.
+   */
+  closeExportModal() {
+    if (!this.exportModal) return;
+    this.exportModal.classList.add("hidden");
+  }
+
+  /**
+   * Updates real-time 300 DPI print dimension readouts in the export modal.
+   */
+  _updateExportReadout() {
+    if (!this.exportResPixels || !this.exportResPrint) return;
+    const scaleSelect = this.exportScaleSelect || this.exportScale;
+    const mult = parseFloat(scaleSelect ? scaleSelect.value : 1) || 1;
+
+    const baseW = (this.engine && this.engine.width) || 1080;
+    const baseH = (this.engine && this.engine.height) || 1350;
+    const artW = Math.round(baseW * mult);
+    const artH = Math.round(baseH * mult);
+
+    const includeFrame = Boolean(
+      this.exportIncludeFrame &&
+        this.exportIncludeFrame.checked &&
+        this.currentFrame !== "none"
+    );
+
+    let finalW = artW;
+    let finalH = artH;
+
+    if (includeFrame) {
+      const minDim = Math.min(artW, artH);
+      const matW = Math.round(minDim * 0.05);
+      const frameW = Math.round(minDim * 0.032);
+      const border = matW + frameW;
+      finalW += border * 2;
+      finalH += border * 2;
+    }
+
+    const wIn = finalW / 300;
+    const hIn = finalH / 300;
+    const wCm = wIn * 2.54;
+    const hCm = hIn * 2.54;
+
+    this.exportResPixels.textContent = `${finalW} × ${finalH} px`;
+    this.exportResPrint.textContent = `${wIn.toFixed(1)}″ × ${hIn.toFixed(1)}″ (${wCm.toFixed(1)} × ${hCm.toFixed(1)} cm) @ 300 DPI Archival`;
+  }
+
+  /**
+   * Triggers Print Studio modal or direct export.
    */
   exportArtwork() {
-    const scaleSelect = document.getElementById("export-scale");
-    const mult = parseFloat(scaleSelect.value) || 1;
+    this.openExportModal();
+  }
 
-    const exportCanvas = document.createElement("canvas");
+  /**
+   * Executes download or direct clipboard copy with optional framing and hybrid resolution.
+   * @param {"download"|"clipboard"} [action="download"]
+   */
+  async executeExport(action = "download") {
+    const scaleSelect = this.exportScaleSelect || this.exportScale;
+    const mult = parseFloat(scaleSelect ? scaleSelect.value : 1) || 1;
+    const formatValue = this.exportFormatSelect
+      ? this.exportFormatSelect.value
+      : "image/png";
+    const [mimeType, qualityStr] = formatValue.split(";");
+    const quality = qualityStr ? parseFloat(qualityStr) : 0.95;
+
+    const includeFrame = Boolean(
+      this.exportIncludeFrame &&
+        this.exportIncludeFrame.checked &&
+        this.currentFrame !== "none"
+    );
+
+    this.showToast(
+      action === "clipboard"
+        ? "Rendering artwork for clipboard..."
+        : "Rendering print artwork..."
+    );
+
+    // Yield to let UI update / toast show
+    await new Promise((r) => setTimeout(r, 40));
+
+    const finalCanvas = this._renderExportArtwork(mult, includeFrame);
+
+    if (action === "clipboard") {
+      await this.copyArtworkToClipboard(finalCanvas);
+    } else {
+      const ext = mimeType === "image/jpeg" ? "jpg" : "png";
+      const frameTag = includeFrame ? `-${this.currentFrame}-frame` : "";
+      const filename = `splashcanvas-${this.currentPresetId}${frameTag}-${finalCanvas.width}x${finalCanvas.height}.${ext}`;
+      this._downloadCanvas(finalCanvas, mimeType, quality, filename);
+    }
+
+    this.closeExportModal();
+  }
+
+  /**
+   * Renders the export canvas at native or multi-scale resolution with optional frame compositing.
+   * @private
+   */
+  _renderExportArtwork(mult = 1, includeFrame = false) {
+    const artCanvas = document.createElement("canvas");
     if (mult === 1) {
-      this.engine.render(exportCanvas, this.params, "result");
+      this.engine.render(artCanvas, this.params, "result");
     } else {
       const tempEngine = new WatercolorEngine();
       tempEngine.setSeed(this.engine.seed);
@@ -1436,16 +2027,351 @@ class SplashCanvasApp {
       } else {
         tempEngine.loadImage(this.outputCanvas, targetDim);
       }
-      tempEngine.render(exportCanvas, this.params, "result");
+
+      // Transfer AI subject mask if active
+      if (this.engine.aiSubjectMask && tempEngine.width && tempEngine.height) {
+        const scaledAIMask = this._resampleMask(
+          this.engine.aiSubjectMask,
+          this.engine.width,
+          this.engine.height,
+          tempEngine.width,
+          tempEngine.height
+        );
+        tempEngine.setAISubjectMask(scaledAIMask);
+      }
+
+      // Transfer user brush mask if active
+      if (this.engine.userBrushMask && tempEngine.userBrushMask) {
+        const scaledBrush = this._resampleMask(
+          this.engine.userBrushMask,
+          this.engine.width,
+          this.engine.height,
+          tempEngine.width,
+          tempEngine.height
+        );
+        tempEngine.userBrushMask.set(scaledBrush);
+      }
+
+      tempEngine.render(artCanvas, this.params, "result");
     }
 
-    const link = document.createElement("a");
-    link.download = `splashcanvas-${this.currentPresetId}-${exportCanvas.width}x${exportCanvas.height}.png`;
-    link.href = exportCanvas.toDataURL("image/png");
-    link.click();
-    this.showToast(
-      `Exported ${exportCanvas.width}×${exportCanvas.height} PNG print`
-    );
+    if (includeFrame && this.currentFrame !== "none") {
+      return this._compositeFrame(artCanvas, this.currentFrame, mult);
+    }
+    return artCanvas;
+  }
+
+  /**
+   * Bilinear resampling for mask buffers during multi-scale export.
+   * @private
+   */
+  _resampleMask(srcMask, sw, sh, dw, dh) {
+    const dst = new Float32Array(dw * dh);
+    const xRatio = (sw - 1) / Math.max(1, dw - 1);
+    const yRatio = (sh - 1) / Math.max(1, dh - 1);
+
+    for (let dy = 0; dy < dh; dy++) {
+      const sy = Math.min(sh - 1, dy * yRatio);
+      const y0 = Math.floor(sy);
+      const y1 = Math.min(sh - 1, y0 + 1);
+      const fy = sy - y0;
+
+      for (let dx = 0; dx < dw; dx++) {
+        const sx = Math.min(sw - 1, dx * xRatio);
+        const x0 = Math.floor(sx);
+        const x1 = Math.min(sw - 1, x0 + 1);
+        const fx = sx - x0;
+
+        const v00 = srcMask[y0 * sw + x0];
+        const v10 = srcMask[y0 * sw + x1];
+        const v01 = srcMask[y1 * sw + x0];
+        const v11 = srcMask[y1 * sw + x1];
+
+        const top = v00 * (1 - fx) + v10 * fx;
+        const bottom = v01 * (1 - fx) + v11 * fx;
+        dst[dy * dw + dx] = top * (1 - fy) + bottom * fy;
+      }
+    }
+    return dst;
+  }
+
+  /**
+   * Composites wooden moulding, archival mat board, and bevel shadows around the artwork.
+   * @private
+   */
+  _compositeFrame(artCanvas, frameStyle, mult = 1) {
+    const artW = artCanvas.width;
+    const artH = artCanvas.height;
+    const minDim = Math.min(artW, artH);
+    const matW = Math.round(minDim * 0.05);
+    const frameW = Math.round(minDim * 0.032);
+    const border = matW + frameW;
+
+    const totalW = artW + border * 2;
+    const totalH = artH + border * 2;
+
+    const framedCanvas = document.createElement("canvas");
+    framedCanvas.width = totalW;
+    framedCanvas.height = totalH;
+    const ctx = framedCanvas.getContext("2d");
+
+    // 1. Draw frame moulding outer border
+    if (frameStyle === "oak") {
+      ctx.fillStyle = "#b58d59";
+      ctx.fillRect(0, 0, totalW, totalH);
+
+      // Subtle oak grain variations
+      const grainGrad = ctx.createLinearGradient(0, 0, totalW, totalH);
+      grainGrad.addColorStop(0, "rgba(255, 255, 255, 0.08)");
+      grainGrad.addColorStop(0.5, "rgba(0, 0, 0, 0.05)");
+      grainGrad.addColorStop(1, "rgba(255, 255, 255, 0.06)");
+      ctx.fillStyle = grainGrad;
+      ctx.fillRect(0, 0, totalW, totalH);
+
+      // Top bevel
+      ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(totalW, 0);
+      ctx.lineTo(totalW - frameW, frameW);
+      ctx.lineTo(frameW, frameW);
+      ctx.closePath();
+      ctx.fill();
+
+      // Left bevel
+      ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(frameW, frameW);
+      ctx.lineTo(frameW, totalH - frameW);
+      ctx.lineTo(0, totalH);
+      ctx.closePath();
+      ctx.fill();
+
+      // Bottom bevel
+      ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+      ctx.beginPath();
+      ctx.moveTo(0, totalH);
+      ctx.lineTo(frameW, totalH - frameW);
+      ctx.lineTo(totalW - frameW, totalH - frameW);
+      ctx.lineTo(totalW, totalH);
+      ctx.closePath();
+      ctx.fill();
+
+      // Right bevel
+      ctx.fillStyle = "rgba(0, 0, 0, 0.20)";
+      ctx.beginPath();
+      ctx.moveTo(totalW, 0);
+      ctx.lineTo(totalW, totalH);
+      ctx.lineTo(totalW - frameW, totalH - frameW);
+      ctx.lineTo(totalW - frameW, frameW);
+      ctx.closePath();
+      ctx.fill();
+
+      // Inner moulding lip
+      ctx.strokeStyle = "#8a6233";
+      ctx.lineWidth = Math.max(1, Math.round(2 * mult));
+      ctx.strokeRect(frameW, frameW, totalW - 2 * frameW, totalH - 2 * frameW);
+    } else if (frameStyle === "white") {
+      ctx.fillStyle = "#f2eee9";
+      ctx.fillRect(0, 0, totalW, totalH);
+
+      // Top bevel
+      ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(totalW, 0);
+      ctx.lineTo(totalW - frameW, frameW);
+      ctx.lineTo(frameW, frameW);
+      ctx.closePath();
+      ctx.fill();
+
+      // Left bevel
+      ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(frameW, frameW);
+      ctx.lineTo(frameW, totalH - frameW);
+      ctx.lineTo(0, totalH);
+      ctx.closePath();
+      ctx.fill();
+
+      // Bottom bevel
+      ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+      ctx.beginPath();
+      ctx.moveTo(0, totalH);
+      ctx.lineTo(frameW, totalH - frameW);
+      ctx.lineTo(totalW - frameW, totalH - frameW);
+      ctx.lineTo(totalW, totalH);
+      ctx.closePath();
+      ctx.fill();
+
+      // Right bevel
+      ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
+      ctx.beginPath();
+      ctx.moveTo(totalW, 0);
+      ctx.lineTo(totalW, totalH);
+      ctx.lineTo(totalW - frameW, totalH - frameW);
+      ctx.lineTo(totalW - frameW, frameW);
+      ctx.closePath();
+      ctx.fill();
+
+      // Inner moulding lip
+      ctx.strokeStyle = "#ded9d0";
+      ctx.lineWidth = Math.max(1, Math.round(2 * mult));
+      ctx.strokeRect(frameW, frameW, totalW - 2 * frameW, totalH - 2 * frameW);
+    } else {
+      // Default: Black
+      ctx.fillStyle = "#18191c";
+      ctx.fillRect(0, 0, totalW, totalH);
+
+      // Top bevel
+      ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(totalW, 0);
+      ctx.lineTo(totalW - frameW, frameW);
+      ctx.lineTo(frameW, frameW);
+      ctx.closePath();
+      ctx.fill();
+
+      // Left bevel
+      ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(frameW, frameW);
+      ctx.lineTo(frameW, totalH - frameW);
+      ctx.lineTo(0, totalH);
+      ctx.closePath();
+      ctx.fill();
+
+      // Bottom bevel
+      ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+      ctx.beginPath();
+      ctx.moveTo(0, totalH);
+      ctx.lineTo(frameW, totalH - frameW);
+      ctx.lineTo(totalW - frameW, totalH - frameW);
+      ctx.lineTo(totalW, totalH);
+      ctx.closePath();
+      ctx.fill();
+
+      // Right bevel
+      ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+      ctx.beginPath();
+      ctx.moveTo(totalW, 0);
+      ctx.lineTo(totalW, totalH);
+      ctx.lineTo(totalW - frameW, totalH - frameW);
+      ctx.lineTo(totalW - frameW, frameW);
+      ctx.closePath();
+      ctx.fill();
+
+      // Inner moulding lip
+      ctx.strokeStyle = "#2c2d32";
+      ctx.lineWidth = Math.max(1, Math.round(2 * mult));
+      ctx.strokeRect(frameW, frameW, totalW - 2 * frameW, totalH - 2 * frameW);
+    }
+
+    // 2. Draw archival mat board
+    ctx.fillStyle = "#fbfaf7";
+    ctx.fillRect(frameW, frameW, totalW - 2 * frameW, totalH - 2 * frameW);
+
+    // 3. Draw artwork in the center aperture
+    ctx.drawImage(artCanvas, border, border, artW, artH);
+
+    // 4. Draw 45-degree beveled mat aperture inner shadow
+    const bevelDepth = Math.max(3, Math.round(7 * mult));
+
+    // Top aperture shadow
+    const topShadow = ctx.createLinearGradient(0, border, 0, border + bevelDepth);
+    topShadow.addColorStop(0, "rgba(0, 0, 0, 0.35)");
+    topShadow.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = topShadow;
+    ctx.fillRect(border, border, artW, bevelDepth);
+
+    // Left aperture shadow
+    const leftShadow = ctx.createLinearGradient(border, 0, border + bevelDepth, 0);
+    leftShadow.addColorStop(0, "rgba(0, 0, 0, 0.25)");
+    leftShadow.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = leftShadow;
+    ctx.fillRect(border, border, bevelDepth, artH);
+
+    // Subtle bottom & right bevel highlights
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
+    ctx.lineWidth = Math.max(1, Math.round(1.5 * mult));
+    ctx.beginPath();
+    ctx.moveTo(border, border + artH);
+    ctx.lineTo(border + artW, border + artH);
+    ctx.lineTo(border + artW, border);
+    ctx.stroke();
+
+    return framedCanvas;
+  }
+
+  /**
+   * Directly copies the artwork to the system clipboard as a PNG image.
+   * Gracefully falls back to file download if clipboard permissions fail.
+   * @param {HTMLCanvasElement} canvas
+   */
+  async copyArtworkToClipboard(canvas) {
+    try {
+      if (
+        !navigator.clipboard ||
+        typeof navigator.clipboard.write !== "function" ||
+        typeof window.ClipboardItem === "undefined"
+      ) {
+        throw new Error("ClipboardItem API not supported");
+      }
+
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error("Blob creation failed"))),
+          "image/png"
+        );
+      });
+
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob }),
+      ]);
+      this.showToast(
+        `Copied ${canvas.width}×${canvas.height} artwork to clipboard!`
+      );
+    } catch (err) {
+      console.warn("Clipboard copy unavailable, falling back to download:", err);
+      const filename = `splashcanvas-${this.currentPresetId}-${canvas.width}x${canvas.height}.png`;
+      this._downloadCanvas(canvas, "image/png", 1.0, filename);
+      this.showToast(
+        "Clipboard copy unavailable — downloaded image file instead"
+      );
+    }
+  }
+
+  /**
+   * Downloads a canvas image file.
+   * @private
+   */
+  _downloadCanvas(canvas, mimeType, quality, filename) {
+    if (canvas.toBlob) {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.download = filename;
+          link.href = url;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+          this.showToast(`Exported ${canvas.width}×${canvas.height} print`);
+        },
+        mimeType,
+        quality
+      );
+    } else {
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = canvas.toDataURL(mimeType, quality);
+      link.click();
+      this.showToast(`Exported ${canvas.width}×${canvas.height} print`);
+    }
   }
 
   /**
