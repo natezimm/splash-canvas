@@ -473,6 +473,8 @@ class SplashCanvasApp {
     this.leftDrawerTitle = document.getElementById("left-drawer-title");
 
     // Milestone 3: Gallery Framing & Print Studio
+    this.frameCards = document.querySelectorAll(".frame-card");
+    this.frameNameLabel = document.getElementById("frame-name-label");
     this.frameSelect = document.getElementById("frame-select");
     this.exportBtn = document.getElementById("export-btn");
     this.exportScale = document.getElementById("export-scale");
@@ -1293,7 +1295,17 @@ class SplashCanvasApp {
       this.openExportModal();
     });
 
-    // Gallery Frame Selection
+    // Gallery Frame Card Selection
+    if (this.frameCards) {
+      this.frameCards.forEach((card) => {
+        card.addEventListener("click", () => {
+          const frame = card.dataset.frame || "none";
+          this.setFrame(frame);
+        });
+      });
+    }
+
+    // Gallery Frame Selection (Select dropdown in modal)
     if (this.frameSelect) {
       this.frameSelect.addEventListener("change", (e) => {
         this.setFrame(e.target.value);
@@ -1869,6 +1881,22 @@ class SplashCanvasApp {
     if (this.frameSelect) {
       this.frameSelect.value = this.currentFrame;
     }
+    if (this.frameCards) {
+      this.frameCards.forEach((card) => {
+        card.classList.toggle("active", card.dataset.frame === this.currentFrame);
+      });
+    }
+
+    const frameTitles = {
+      none: "Raw Canvas",
+      oak: "Natural Oak",
+      black: "Gallery Black",
+      white: "White Float",
+    };
+    if (this.frameNameLabel) {
+      this.frameNameLabel.textContent = frameTitles[this.currentFrame] || "None";
+    }
+
     if (this.exportIncludeFrame) {
       const hasFrame = this.currentFrame !== "none";
       this.exportIncludeFrame.disabled = !hasFrame;
@@ -1881,17 +1909,11 @@ class SplashCanvasApp {
         };
         this.exportFrameDesc.textContent = hasFrame
           ? `Bakes ${frameNames[this.currentFrame]} into image file`
-          : "Select a gallery frame on the stage to enable frame export";
+          : "Select a gallery frame on the left panel to enable frame export";
       }
     }
     this._updateExportReadout();
 
-    const frameTitles = {
-      none: "Raw Canvas",
-      oak: "Natural Oak",
-      black: "Gallery Black",
-      white: "White Float",
-    };
     if (this.currentFrame === "none") {
       this.showToast("Removed gallery frame");
     } else {

@@ -742,6 +742,7 @@ body {
   position: relative;
   min-width: 0;
   height: 100%;
+  overflow: hidden;
 }
 
 .stage-toolbar {
@@ -753,9 +754,12 @@ body {
   border-bottom: 1px solid var(--border-subtle);
   background: rgba(18, 21, 30, 0.85);
   backdrop-filter: blur(10px);
-  z-index: 10;
+  z-index: 5;
   flex-shrink: 0;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .view-toggles {
@@ -817,6 +821,24 @@ body {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1360px) {
+  #render-time-label {
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 1220px) {
+  .stage-telemetry {
+    display: none;
+  }
 }
 
 .telemetry-sep {
@@ -1148,6 +1170,10 @@ body {
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  position: relative;
+  z-index: 6;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .sliders-header {
@@ -1157,12 +1183,15 @@ body {
   flex-direction: column;
   gap: 8px;
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .sliders-header-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
 }
 
 .sliders-header h2 {
@@ -1171,12 +1200,15 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .sliders-header-right {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 /* Quick Category Filter Pills */
@@ -2140,7 +2172,84 @@ input[type="range"]::-webkit-slider-thumb:hover {
    Milestone 3 Gallery Framing & Print Studio
    ============================================================================ */
 
-/* Frame Selector in Stage Toolbar */
+/* Gallery Frame Selection Grid in Left Panel */
+.frame-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.frame-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 3px 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  text-align: center;
+  width: 100%;
+}
+
+.frame-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.frame-card.active {
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.08);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.frame-card .frame-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.frame-card.active .frame-title {
+  color: var(--text-main);
+}
+
+.frame-thumb {
+  width: 34px;
+  height: 24px;
+  border-radius: 3px;
+  display: block;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.frame-thumb-none {
+  background: repeating-linear-gradient(45deg, #2a3142, #2a3142 4px, #1c2230 4px, #1c2230 8px);
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+}
+
+.frame-thumb-oak {
+  background: #fbfaf7;
+  border: 4px solid #b58d59;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.frame-thumb-black {
+  background: #fbfaf7;
+  border: 4px solid #18191c;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.frame-thumb-white {
+  background: #f5f4f0;
+  border: 4px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Frame Selector in Modal & Dropdowns */
 .frame-select-wrap {
   height: 28px;
 }

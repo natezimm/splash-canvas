@@ -156,16 +156,11 @@
 
         <!-- Export Controls -->
         <div class="export-group">
-          <div class="select-wrap">
-            <select id="export-scale" class="select-compact" aria-label="Export resolution scale" title="Select export resolution multiplier">
-              <option value="1">1x Native</option>
-              <option value="1.5">1.5x Print</option>
-              <option value="2">2x Ultra-HD</option>
-            </select>
-            <svg class="select-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2 3.75L5 6.75L8 3.75"/>
-            </svg>
-          </div>
+          <select id="export-scale" class="hidden" aria-label="Export resolution scale">
+            <option value="1">1x Native</option>
+            <option value="1.5">1.5x Print</option>
+            <option value="2">2x Ultra-HD</option>
+          </select>
           <button class="btn btn-primary" id="export-btn" title="Open Print Studio &amp; Export dialog">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -219,6 +214,31 @@
             <button class="swatch" data-tint="#ede6d6" data-name="Archival Cream" style="background:#ede6d6" title="Archival Vintage Cream (#ede6d6)" aria-label="Archival Vintage Cream"></button>
             <button class="swatch" data-tint="#eef1f5" data-name="Cool French Grey" style="background:#eef1f5" title="Cool French Grey (#eef1f5)" aria-label="Cool French Grey"></button>
             <button class="swatch" data-tint="#f7eee8" data-name="Blush Parchment" style="background:#f7eee8" title="Warm Blush Parchment (#f7eee8)" aria-label="Blush Parchment"></button>
+          </div>
+        </div>
+
+        <div class="panel-section gallery-frame-section" data-left-section="presets">
+          <div class="section-header">
+            <h2>Gallery Framing</h2>
+            <span class="paper-name-label" id="frame-name-label">Raw Canvas</span>
+          </div>
+          <div class="frame-grid" id="frame-grid" role="radiogroup" aria-label="Virtual gallery frame">
+            <button type="button" class="frame-card active" data-frame="none" title="No Frame (Raw Canvas)" aria-label="No Frame">
+              <span class="frame-thumb frame-thumb-none"></span>
+              <span class="frame-title">None</span>
+            </button>
+            <button type="button" class="frame-card" data-frame="oak" title="Natural Oak Wood Frame" aria-label="Natural Oak">
+              <span class="frame-thumb frame-thumb-oak"></span>
+              <span class="frame-title">Oak</span>
+            </button>
+            <button type="button" class="frame-card" data-frame="black" title="Gallery Matte Black Frame" aria-label="Gallery Black">
+              <span class="frame-thumb frame-thumb-black"></span>
+              <span class="frame-title">Black</span>
+            </button>
+            <button type="button" class="frame-card" data-frame="white" title="Contemporary White Float Frame" aria-label="White Float">
+              <span class="frame-thumb frame-thumb-white"></span>
+              <span class="frame-title">White</span>
+            </button>
           </div>
         </div>
 
@@ -339,23 +359,6 @@
             <button class="seed-pill mobile-stage-seed" id="mobile-seed-btn" title="Tap to re-roll random splatters">
               🎲 <span id="mobile-seed-readout">#2026</span>
             </button>
-
-            <!-- Virtual Gallery Framing Select -->
-            <div class="select-wrap frame-select-wrap" title="Preview artwork in a virtual gallery frame">
-              <svg class="frame-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                <rect x="7" y="7" width="10" height="10"/>
-              </svg>
-              <select id="frame-select" class="select-compact frame-select" aria-label="Select gallery frame preview">
-                <option value="none">No Frame</option>
-                <option value="oak">Natural Oak</option>
-                <option value="black">Gallery Black</option>
-                <option value="white">White Float</option>
-              </select>
-              <svg class="select-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 3.75L5 6.75L8 3.75"/>
-              </svg>
-            </div>
 
             <button class="btn-hold-compare" id="hold-compare-btn" title="Press and hold (or hold Spacebar) to peek at original photo">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -870,6 +873,22 @@
                   <path d="M2 3.75L5 6.75L8 3.75"/>
                 </svg>
               </div>
+            </div>
+          </div>
+
+          <!-- Gallery Frame Style -->
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label for="frame-select">Gallery Frame Style</label>
+            <div class="select-wrap select-block">
+              <select id="frame-select" class="select-full" aria-label="Select gallery frame preview">
+                <option value="none">No Frame (Raw Canvas)</option>
+                <option value="oak">Natural Oak Wood Frame</option>
+                <option value="black">Gallery Matte Black Frame</option>
+                <option value="white">Contemporary White Float Frame</option>
+              </select>
+              <svg class="select-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 3.75L5 6.75L8 3.75"/>
+              </svg>
             </div>
           </div>
 
